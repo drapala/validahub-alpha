@@ -3,9 +3,12 @@
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 
+from src.application.ports import JobRepository, RateLimiter, EventBus
+from src.domain.value_objects import TenantId, IdempotencyKey
+
 
 @dataclass
-class FakeJobRepository:
+class FakeJobRepository(JobRepository):
     """Fake job repository for testing."""
     
     _jobs: Dict[str, Any] = field(default_factory=dict)
@@ -22,15 +25,20 @@ class FakeJobRepository:
             return self._jobs.get(job_id)
         return None
     
-    def save(self, job: Any) -> None:
+    def save(self, job: Any) -> Any:
         """Save job to fake storage."""
         self._jobs[job.id] = job
         if hasattr(job, 'idempotency_key') and job.idempotency_key:
             self._idempotency_index[(job.tenant_id, job.idempotency_key)] = job.id
+        return job
+    
+    def find_by_idempotency_key(self, tenant_id: TenantId, key: IdempotencyKey) -> Optional[Any]:
+        """Find job by tenant and idempotency key (port interface)."""
+        return self.get_by_idempotency_key(tenant_id.value, key.value)
 
 
 @dataclass
-class FakeEventBus:
+class FakeEventBus(EventBus):
     """Fake event bus for testing."""
     
     published_events: List[Any] = field(default_factory=list)
@@ -52,7 +60,7 @@ class FakeEventBus:
 
 
 @dataclass
-class FakeRateLimiter:
+class FakeRateLimiter(RateLimiter):
     """Fake rate limiter for testing."""
     
     _limits: Dict[str, int] = field(default_factory=dict)
@@ -66,6 +74,10 @@ class FakeRateLimiter:
         current = self._limits.get(tenant_id, 0)
         self._limits[tenant_id] = current + 1
         return current < limit
+    
+    def check_and_consume(self, tenant_id: TenantId, resource: str) -> bool:
+        """Check rate limit and consume token (port interface)."""
+        return self.check_limit(tenant_id.value)
     
     def set_exceeded(self, exceeded: bool = True) -> None:
         """Set rate limit exceeded for testing."""

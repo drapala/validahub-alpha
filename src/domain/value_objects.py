@@ -7,8 +7,8 @@ import unicodedata
 from urllib.parse import urlparse
 from uuid import UUID
 
-from shared.logging import get_logger
-from shared.logging.security import SecurityLogger
+from src.shared.logging import get_logger
+from src.shared.logging.security import SecurityLogger
 
 
 def _has_control_or_format(s: str) -> bool:
@@ -88,7 +88,7 @@ class TenantId:
 class IdempotencyKey:
     """Idempotency key with CSV injection protection."""
     value: str
-    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9\-_]{8,128}$")
+    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9\-_.]{8,128}$")
     
     def __post_init__(self) -> None:
         logger = get_logger("domain.idempotency_key")
@@ -268,6 +268,57 @@ class RulesProfileId:
     
     def __repr__(self) -> str:
         return f"RulesProfileId('{self}')"
+
+
+@dataclass(frozen=True)
+class Channel:
+    """Channel (marketplace) identifier with validation."""
+    value: str
+    _valid_channels: ClassVar[set[str]] = {
+        "mercado_livre", "magalu", "americanas", "shopee", "amazon"
+    }
+    
+    def __post_init__(self) -> None:
+        logger = get_logger("domain.channel")
+        
+        if not isinstance(self.value, str):
+            logger.warning(
+                "channel_validation_failed",
+                error_type="invalid_type",
+                value_type=type(self.value).__name__,
+            )
+            raise ValueError("Invalid channel format")
+        
+        # Normalize
+        normalized = self.value.strip().lower()
+        
+        # Length validation
+        if not normalized or len(normalized) < 2 or len(normalized) > 50:
+            logger.warning(
+                "channel_validation_failed",
+                error_type="invalid_length",
+                length=len(normalized) if normalized else 0,
+            )
+            raise ValueError("Invalid channel format")
+        
+        # Set normalized value
+        object.__setattr__(self, 'value', normalized)
+        
+        logger.debug(
+            "channel_created",
+            channel=normalized,
+            is_known_channel=normalized in self._valid_channels,
+        )
+    
+    def is_known_channel(self) -> bool:
+        """Check if this is a known/supported channel."""
+        return self.value in self._valid_channels
+    
+    def __str__(self) -> str:
+        return self.value
+    
+    def __repr__(self) -> str:
+        return f"Channel('{self.value}')"
 
 
 @dataclass(frozen=True)

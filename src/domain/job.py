@@ -9,14 +9,15 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
-from .errors import DomainError, InvalidStateTransitionError
-from .value_objects import JobId, TenantId
+from src.domain.errors import DomainError, InvalidStateTransitionError
+from src.domain.value_objects import JobId, TenantId
 
 
 class JobStatus(Enum):
     """Job processing status with minimal state machine."""
     
     SUBMITTED = "submitted"
+    QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -66,6 +67,7 @@ class Job:
         
         Valid transitions:
         - SUBMITTED -> RUNNING
+        - QUEUED -> RUNNING
         - RETRYING -> RUNNING
         
         Returns:
@@ -74,7 +76,7 @@ class Job:
         Raises:
             InvalidStateTransitionError: If transition is not allowed
         """
-        if self.status not in [JobStatus.SUBMITTED, JobStatus.RETRYING]:
+        if self.status not in [JobStatus.SUBMITTED, JobStatus.QUEUED, JobStatus.RETRYING]:
             raise InvalidStateTransitionError(
                 from_state=self.status.value,
                 to_state=JobStatus.RUNNING.value

@@ -4,9 +4,10 @@ import pytest
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from application.use_cases.submit_job import SubmitJobUseCase, SubmitJobRequest, RateLimitExceeded
-from domain.value_objects import TenantId, IdempotencyKey
-from domain.job import Job, JobStatus
+from src.application.use_cases.submit_job import SubmitJobUseCase, SubmitJobRequest
+from src.application.errors import RateLimitExceeded
+from src.domain.value_objects import TenantId, IdempotencyKey
+from src.domain.job import Job, JobStatus
 from tests.fakes import FakeJobRepository, FakeEventBus, FakeRateLimiter
 
 
@@ -57,7 +58,7 @@ class TestSubmitJobUseCase:
         
         # Assert job created
         assert result.job_id is not None
-        assert result.status == JobStatus.QUEUED
+        assert result.status == JobStatus.QUEUED.value
         assert result.file_ref == "s3://bucket/test-file.csv"
         assert result.created_at is not None
         
@@ -80,8 +81,8 @@ class TestSubmitJobUseCase:
         # Assert job persisted
         saved_job = job_repository.get_by_id(result.job_id)
         assert saved_job is not None
-        assert saved_job.tenant_id.value == "tenant_123"
-        assert saved_job.idempotency_key.value == "test-key-123.csv"
+        assert saved_job.tenant_id == "tenant_123"
+        assert saved_job.idempotency_key == "test-key-123.csv"
         
         # Assert job can be found by idempotency key
         found_job = job_repository.get_by_idempotency_key("tenant_123", "test-key-123.csv")
@@ -216,7 +217,7 @@ class TestSubmitJobUseCase:
         
         # Assert job created
         assert result.job_id is not None
-        assert result.status == JobStatus.QUEUED
+        assert result.status == JobStatus.QUEUED.value
         
         # Assert event published
         events = event_bus.get_events_by_type("valida.job.submitted")
@@ -277,7 +278,7 @@ class TestSubmitJobUseCase:
             job_type="csv_validation",
             file_ref="s3://bucket/file1.csv",
             rules_profile_id="ml@1.2.3",
-            idempotency_key="key-1"
+            idempotency_key="key-1-12345678"
         )
         
         request2 = SubmitJobRequest(
@@ -287,7 +288,7 @@ class TestSubmitJobUseCase:
             job_type="csv_validation",
             file_ref="s3://bucket/file2.csv",
             rules_profile_id="ml@1.2.3",
-            idempotency_key="key-2"  # Different key
+            idempotency_key="key-2-12345678"  # Different key
         )
         
         # Act
