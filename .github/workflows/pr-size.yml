@@ -2,7 +2,7 @@ name: PR Size Check
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, labeled, unlabeled]
 
 permissions:
   pull-requests: write
@@ -24,12 +24,21 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const pr = context.payload.pull_request;
-            const { additions, deletions } = pr;
+            // Fetch PR details with labels
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const { additions, deletions, labels } = pullRequest;
             const totalChanges = additions + deletions;
             
             const SOFT_LIMIT = 200;
             const HARD_LIMIT = 400;
+            
+            // Check for override label
+            const hasOverride = labels.some(label => label.name === 'size/override');
             
             let message = `📊 PR Size Report\n\n`;
             message += `- **Added lines**: ${additions}\n`;
@@ -37,16 +46,16 @@ jobs:
             message += `- **Total changes**: ${totalChanges}\n\n`;
             
             if (totalChanges > HARD_LIMIT) {
-              message += `❌ **PR exceeds hard limit of ${HARD_LIMIT} lines!**\n`;
-              message += `Please split this PR into smaller, focused changes.\n`;
-              message += `Use label \`size/override\` with justification if absolutely necessary.`;
-              
-              // Check for override label
-              const labels = pr.labels.map(l => l.name);
-              if (!labels.includes('size/override')) {
-                core.setFailed(`PR size (${totalChanges} lines) exceeds hard limit of ${HARD_LIMIT} lines`);
+              if (hasOverride) {
+                message += `⚠️ **PR exceeds hard limit of ${HARD_LIMIT} lines**\n`;
+                message += `✅ **Override label detected** - proceeding despite size.\n`;
+                message += `Please ensure justification is documented in PR description or comments.`;
+                console.log(`PR size override: ${totalChanges} lines with size/override label`);
               } else {
-                message += `\n\n✅ Override label detected - proceeding despite size.`;
+                message += `❌ **PR exceeds hard limit of ${HARD_LIMIT} lines!**\n`;
+                message += `Please split this PR into smaller, focused changes.\n`;
+                message += `Use label \`size/override\` with justification if absolutely necessary.`;
+                core.setFailed(`PR size (${totalChanges} lines) exceeds hard limit of ${HARD_LIMIT} lines. Add 'size/override' label with justification to bypass.`);
               }
             } else if (totalChanges > SOFT_LIMIT) {
               message += `⚠️ **PR exceeds soft limit of ${SOFT_LIMIT} lines**\n`;
@@ -55,10 +64,30 @@ jobs:
               message += `✅ **PR size is within recommended limits**`;
             }
             
-            // Post comment
+            // Find and delete previous size check comments
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const botComments = comments.filter(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('📊 PR Size Report')
+            );
+            
+            for (const comment of botComments) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id
+              });
+            }
+            
+            // Post new comment
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: pr.number,
+              issue_number: context.issue.number,
               body: message
             });
