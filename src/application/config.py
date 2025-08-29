@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Optional, List
 from functools import lru_cache
 
-from src.infrastructure.secrets.doppler_client import get_secrets_manager
+from src.application.ports import SecretsManager
 
 
 class IdempotencyCompatMode(Enum):
@@ -21,13 +21,12 @@ class Environment(Enum):
     TEST = "test"
 
 
-@lru_cache(maxsize=1)
 class Config:
-    """Application configuration with Doppler secrets management."""
+    """Application configuration with secure secrets management."""
     
-    def __init__(self):
-        """Initialize configuration from Doppler."""
-        self.secrets = get_secrets_manager()
+    def __init__(self, secrets_manager: SecretsManager):
+        """Initialize configuration with secrets manager."""
+        self.secrets = secrets_manager
         self._load_config()
     
     def _load_config(self) -> None:
@@ -173,8 +172,8 @@ class Config:
         return self.IDEMP_COMPAT_MODE
     
     def reload(self) -> None:
-        """Reload configuration from Doppler."""
-        self.secrets.doppler.refresh_cache()
+        """Reload configuration from secrets manager."""
+        self.secrets.refresh_cache()
         self._load_config()
         self.validate()
 
@@ -183,10 +182,27 @@ class Config:
 _config: Optional[Config] = None
 
 
-def get_config() -> Config:
-    """Get or create global configuration instance."""
+def get_config(secrets_manager: Optional[SecretsManager] = None) -> Config:
+    """
+    Get or create global configuration instance.
+    
+    Args:
+        secrets_manager: SecretsManager implementation. If None, caller must provide it.
+        
+    Returns:
+        Configuration instance
+        
+    Raises:
+        ValueError: If secrets_manager is None and no global config exists
+    """
     global _config
     if _config is None:
-        _config = Config()
+        if secrets_manager is None:
+            raise ValueError(
+                "SecretsManager must be provided when creating Config for the first time. "
+                "This maintains clean architecture by requiring infrastructure dependencies "
+                "to be injected from the composition root."
+            )
+        _config = Config(secrets_manager)
         _config.validate()
     return _config

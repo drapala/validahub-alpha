@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![LGPD Compliant](https://img.shields.io/badge/LGPD-Compliant-green.svg)](docs/security/)
 [![Architecture: DDD](https://img.shields.io/badge/Architecture-DDD%20%2B%20Event%20Sourcing-blue.svg)](docs/architecture/)
-[![API: OpenAPI 3.1](https://img.shields.io/badge/API-OpenAPI%203.1-orange.svg)](docs/architecture/API.md)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 ---
 
@@ -23,140 +23,99 @@
 
 ---
 
-## 🧠 Intelligence-First Architecture
+## 🧠 Architecture-First Development
 
-ValidaHub isn't just another CSV validator. We're building the **intelligence layer** for Brazil's e-commerce ecosystem through event sourcing and network effects.
+ValidaHub is built with a **Domain-Driven Design** architecture that separates business logic from infrastructure, enabling rapid feature development and easy testing.
 
 ```mermaid
 graph TB
-    subgraph "Data Ingestion"
-        CSV[CSV Upload]
-        API[REST API]
-        SDK[SDK/Widgets]
+    subgraph "Domain Layer"
+        JOB[Job Aggregate]
+        VO[Value Objects]
+        EVENTS[Domain Events]
     end
     
-    subgraph "Processing Layer"
-        RULES[Rule Engine<br/>Marketplace Specific]
-        VALIDATE[Validation Pipeline]
-        CORRECT[Auto-Correction]
+    subgraph "Application Layer"
+        UC[Use Cases]
+        PORTS[Ports/Interfaces]
     end
     
-    subgraph "Event Store"
-        EVENTS[Event Sourcing<br/>Every change tracked]
-        AUDIT[Audit Trail<br/>LGPD Compliant]
+    subgraph "Infrastructure Layer"
+        REPO[Repositories]
+        EVENTBUS[Event Bus]
+        AUTH[Authentication]
+        RATE[Rate Limiting]
     end
     
-    subgraph "Intelligence Engine"
-        ANALYTICS[Real-time Analytics]
-        BENCHMARK[Cross-tenant Benchmarking]
-        PREDICT[ML Predictions]
-        INSIGHTS[Actionable Insights]
+    subgraph "API Layer"
+        FASTAPI[FastAPI]
+        MIDDLEWARE[Middleware]
+        HANDLERS[Route Handlers]
     end
     
-    subgraph "Output Channels"
-        DASHBOARD[Analytics Dashboard]
-        ALERTS[Smart Alerts]
-        REPORTS[Benchmark Reports]
-        APIOUT[Intelligence API]
-    end
+    FASTAPI --> UC
+    UC --> PORTS
+    REPO --> PORTS
+    EVENTBUS --> PORTS
+    AUTH --> MIDDLEWARE
+    RATE --> MIDDLEWARE
     
-    CSV --> RULES
-    API --> VALIDATE
-    SDK --> CORRECT
+    UC --> JOB
+    JOB --> EVENTS
     
-    RULES --> EVENTS
-    VALIDATE --> EVENTS
-    CORRECT --> EVENTS
+    classDef domain fill:#e1f5fe
+    classDef application fill:#fff3e0
+    classDef infrastructure fill:#f3e5f5
+    classDef api fill:#e8f5e8
     
-    EVENTS --> ANALYTICS
-    EVENTS --> BENCHMARK
-    EVENTS --> PREDICT
-    EVENTS --> INSIGHTS
-    
-    ANALYTICS --> DASHBOARD
-    BENCHMARK --> ALERTS
-    PREDICT --> REPORTS
-    INSIGHTS --> APIOUT
-    
-    classDef intelligence fill:#e1f5fe
-    class ANALYTICS,BENCHMARK,PREDICT,INSIGHTS intelligence
+    class JOB,VO,EVENTS domain
+    class UC,PORTS application
+    class REPO,EVENTBUS,AUTH,RATE infrastructure
+    class FASTAPI,MIDDLEWARE,HANDLERS api
 ```
 
 ---
 
-## 💡 Key Features
+## 💡 Current Features (MVP)
 
 ### 🔥 Core Validation Engine
-- **Multi-marketplace support**: Mercado Livre, Magalu, Amazon Brasil
-- **Real-time processing**: SSE streams + webhooks for instant feedback  
-- **Smart corrections**: Auto-fix common catalog errors
-- **Rule versioning**: Shadow mode testing before rule changes
+- **Multi-tenant architecture**: Complete tenant isolation with security
+- **Job processing pipeline**: Submit, track, and retry CSV validation jobs
+- **Real-time updates**: Server-sent events for live job status
+- **Idempotency protection**: Safe retry mechanisms with duplicate prevention
+- **Audit logging**: Complete LGPD-compliant audit trail
 
-### 📊 Intelligence Platform
-- **Personal Analytics**: Track your catalog health over time
-- **Anonymous Benchmarking**: Compare against market segments (LGPD-compliant)
-- **Predictive Insights**: Forecast catalog issues before they happen
-- **Competitive Intelligence**: Market trends and opportunity identification
+### 🛡️ Security & Compliance
+- **JWT authentication**: Secure token-based auth with scopes
+- **Rate limiting**: Per-tenant quotas via Redis
+- **CSV security**: Formula injection prevention
+- **LGPD compliance**: Data protection and privacy rights
+- **Multi-tenant isolation**: Complete data separation
 
 ### 🏗️ Developer Experience
-- **15-minute integration**: From signup to first job
-- **SDKs in 3 languages**: JavaScript, Python, Java
-- **OpenAPI 3.1**: Contract-first development
-- **Drop-in widgets**: `<vh-uploader>` component
+- **Clean Architecture**: DDD with ports & adapters
+- **Contract testing**: Architecture validation in CI
+- **Structured logging**: OpenTelemetry-compatible tracing
+- **Docker development**: One-command environment setup
 
 ---
 
 ## 🏛️ Technology Stack
 
-### Core Architecture
-```mermaid
-graph LR
-    subgraph "Frontend"
-        NEXT[Next.js 14<br/>React + Tailwind]
-        WIDGET[Web Components<br/>Drop-in Widgets]
-    end
-    
-    subgraph "Backend"
-        API[FastAPI<br/>Python 3.11]
-        DOMAIN[Domain Layer<br/>DDD + Clean Arch]
-        EVENTS[Event Sourcing<br/>PostgreSQL + Redis]
-    end
-    
-    subgraph "Intelligence"
-        ANALYTICS[Analytics Pipeline<br/>dbt + PostgreSQL]
-        ML[ML Models<br/>scikit-learn]
-        BENCH[Benchmarking Engine<br/>Anonymous Aggregation]
-    end
-    
-    subgraph "Infrastructure"
-        POSTGRES[(PostgreSQL 15<br/>JSONB + Partitioning)]
-        REDIS[(Redis<br/>Streams + Cache)]
-        S3[(S3/MinIO<br/>File Storage)]
-        OTEL[OpenTelemetry<br/>Observability]
-    end
-    
-    NEXT --> API
-    WIDGET --> API
-    API --> DOMAIN
-    DOMAIN --> EVENTS
-    EVENTS --> POSTGRES
-    EVENTS --> REDIS
-    EVENTS --> ANALYTICS
-    ANALYTICS --> ML
-    ML --> BENCH
-    
-    API --> S3
-    API --> OTEL
-```
+### Backend (Implemented)
+- **API**: FastAPI with Pydantic validation
+- **Architecture**: Domain-Driven Design + Clean Architecture
+- **Database**: PostgreSQL 15 with JSONB support
+- **Cache/Queue**: Redis for rate limiting and event streaming
+- **Authentication**: JWT with RS256 signing
+- **Logging**: Structured logging with correlation IDs
+- **Testing**: pytest with architecture validation
 
-### Key Technologies
-- **Backend**: FastAPI + Pydantic + SQLAlchemy + Alembic
-- **Frontend**: Next.js 14 (App Router) + shadcn/ui
-- **Database**: PostgreSQL 15 with JSONB and partitioning
-- **Queue**: Redis Streams → Kafka (future scale)
-- **Storage**: S3/MinIO with presigned URLs
-- **Observability**: OpenTelemetry + Prometheus + Sentry
-- **Security**: JWT + scopes, CORS, rate limiting, LGPD compliance
+### Infrastructure
+- **Development**: Docker Compose
+- **Observability**: OpenTelemetry traces and metrics
+- **Security**: CORS, security headers, trusted hosts
+- **Multi-tenancy**: Row-level security and tenant isolation
 
 ---
 
@@ -164,8 +123,8 @@ graph LR
 
 ### Prerequisites
 - Docker & Docker Compose
-- Node.js 18+ (for frontend)
-- Python 3.11+ (for backend)
+- Python 3.11+ 
+- Git
 
 ### 5-Minute Setup
 
@@ -174,310 +133,262 @@ graph LR
 git clone https://github.com/validahub/validahub-alpha.git
 cd validahub-alpha
 
-# Start infrastructure services
+# Install Python dependencies
+pip install -r requirements-dev.txt
+
+# Start infrastructure services (PostgreSQL, Redis, etc.)
 make up
 
-# Run database migrations
-make db.migrate
+# Run database migrations (when Alembic is configured)
+# make db.migrate
 
-# Generate API types from OpenAPI
-make contracts.gen
-
-# Start development servers
+# Start development API server
 make dev
 
-# Your ValidaHub instance is ready!
+# Your ValidaHub API is ready!
 # API: http://localhost:8000
-# Web Dashboard: http://localhost:3000
+# API Documentation: http://localhost:8000/docs
 ```
 
 ### First Job Submission
 
 ```python
 import requests
+import uuid
 
-# Submit a CSV for validation
-response = requests.post('http://localhost:8000/jobs', 
+# Submit a CSV validation job
+response = requests.post('http://localhost:8000/v1/jobs', 
     headers={
         'Authorization': 'Bearer your-jwt-token',
-        'X-Tenant-Id': 'your-tenant-id',
-        'Idempotency-Key': 'unique-operation-id'
+        'X-Tenant-Id': 't_demo_tenant',
+        'Idempotency-Key': str(uuid.uuid4()),
+        'Content-Type': 'application/json'
     },
     json={
         'channel': 'mercado_livre',
+        'type': 'validation',
         'seller_id': 'seller_123',
-        'file_ref': 's3://bucket/products.csv'
+        'file_ref': 's3://uploads/tenant123/products.csv',
+        'rules_profile_id': 'ml@1.0.0'
     }
 )
 
 job = response.json()
-print(f"Job created: {job['id']}")
+print(f"Job created: {job['job_id']}")
 
 # Monitor progress via Server-Sent Events
 import sseclient
 
-events = sseclient.SSEClient('http://localhost:8000/jobs/stream')
+events = sseclient.SSEClient(
+    'http://localhost:8000/v1/jobs/stream',
+    headers={
+        'Authorization': 'Bearer your-jwt-token',
+        'X-Tenant-Id': 't_demo_tenant'
+    }
+)
+
 for event in events:
     print(f"Status update: {event.data}")
 ```
 
 ---
 
-## 📡 API Overview
+## 📡 API Reference
 
-### Intelligence-Focused Endpoints
+### Core Endpoints (Implemented)
 
 ```yaml
-# Core Validation
-POST   /jobs              # Submit validation job (idempotent)
-GET    /jobs/{id}          # Job status + correction details
-POST   /jobs/{id}/retry    # Reprocess with latest rules
-GET    /jobs/stream        # Real-time updates via SSE
+# Job Management
+POST   /v1/jobs           # Submit validation job (requires Idempotency-Key)
+GET    /v1/jobs/{id}      # Get job details and status  
+POST   /v1/jobs/{id}/retry # Retry failed job
+GET    /v1/jobs           # List jobs with filtering
+GET    /v1/jobs/stream    # Real-time updates via Server-Sent Events
 
-# Intelligence APIs  
-GET    /analytics/personal          # Your catalog health metrics
-GET    /benchmarks/segment/{segment} # Anonymous market comparison
-GET    /insights/predictions        # ML-powered forecasts
-GET    /intelligence/trends         # Market intelligence feeds
+# System Health
+GET    /health            # Health check
+GET    /ready             # Readiness check with dependency status
+```
 
-# Developer Tools
-GET    /rules/profiles             # Available marketplace rule sets
-POST   /rules/simulate             # Test rules before applying
-GET    /health                     # System health + metrics
+### Required Headers
+
+```http
+Authorization: Bearer <jwt-token>     # Required for all endpoints except health
+X-Tenant-Id: t_your_tenant           # Required for all job operations  
+Idempotency-Key: <unique-key>         # Required for POST /v1/jobs
 ```
 
 ### Event-Driven Architecture
 
-Every action generates CloudEvents for downstream intelligence:
+Every job operation generates events for audit and future intelligence:
 
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "specversion": "1.0",
   "source": "apps/api",
-  "type": "job.succeeded",
+  "type": "job.submitted",
   "time": "2025-08-29T15:30:00Z",
   "subject": "job:6c0e7b5a-4f3c-4d1e-9b8f-2a1c3d4e5f6g",
-  "tenant_id": "tenant_123",
+  "tenant_id": "t_demo_tenant",
+  "request_id": "req_123",
+  "trace_id": "trace_456",
   "data": {
     "job_id": "6c0e7b5a-4f3c-4d1e-9b8f-2a1c3d4e5f6g",
-    "counters": {"errors": 2, "warnings": 5, "total": 1200},
-    "duration_ms": 3420,
-    "corrections_applied": 15
+    "seller_id": "seller_123",
+    "channel": "mercado_livre",
+    "type": "validation"
   }
 }
 ```
 
 ---
 
-## 🌐 Network Effects & Intelligence
+## 🏗️ Development
 
-ValidaHub creates a **virtuous cycle** where more users generate better intelligence for everyone:
+### Development Commands
 
-```mermaid
-graph TB
-    SELLERS[More Sellers<br/>Upload Catalogs]
-    DATA[More Data<br/>Better Patterns]
-    INTELLIGENCE[Smarter Intelligence<br/>Better Insights]
-    VALUE[Higher Value<br/>Better Outcomes]
-    GROWTH[Platform Growth<br/>Network Effects]
-    
-    SELLERS --> DATA
-    DATA --> INTELLIGENCE
-    INTELLIGENCE --> VALUE
-    VALUE --> GROWTH
-    GROWTH --> SELLERS
-    
-    classDef highlight fill:#f9fbe7
-    class INTELLIGENCE,VALUE highlight
+```bash
+# Infrastructure
+make up                 # Start PostgreSQL, Redis, MinIO, OpenTelemetry
+make down              # Stop all services
+make logs              # Show Docker logs
+
+# Testing
+make test              # Run all tests with coverage
+make test.unit         # Unit tests only
+make test.integration  # Integration tests only
+make test.architecture # Validate layer dependencies
+
+# Code Quality  
+make lint              # Ruff linting
+make format            # Black + Ruff formatting
+make check.arch        # Validate architecture rules
+
+# Development
+make dev               # Start API server
+make install           # Install dependencies
+make clean             # Clean temporary files
 ```
 
-### How Network Effects Work
+### Architecture Principles
 
-1. **Data Aggregation**: Each validation job contributes to collective intelligence
-2. **Anonymous Benchmarking**: Compare your performance against market segments (LGPD-compliant)
-3. **Pattern Recognition**: ML models improve with more diverse catalog data
-4. **Market Insights**: Cross-marketplace trends become visible only at scale
-5. **Competitive Moats**: First-mover advantage compounds over time
+- **Domain Purity**: Domain layer has zero framework dependencies
+- **Dependency Inversion**: Application layer defines ports, infrastructure implements
+- **Event Sourcing**: Every operation creates auditable events
+- **Multi-Tenant**: All data isolated by tenant_id
+- **Test Coverage**: >80% coverage with architecture validation
+
+### Adding New Features
+
+1. **Domain First**: Define entities, value objects, and domain events
+2. **Use Cases**: Create application service with mocked ports
+3. **Infrastructure**: Implement concrete adapters
+4. **API**: Add FastAPI routes with proper validation
+5. **Tests**: Unit tests with mocks, integration tests with real services
 
 ---
 
-## 🔄 Data Flow & Intelligence Pipeline
+## 📊 Roadmap
 
-```mermaid
-flowchart TD
-    subgraph "Input Sources"
-        CSV[CSV Files]
-        API[API Calls]
-        BULK[Bulk Imports]
-    end
-    
-    subgraph "Processing Pipeline"
-        INGEST[Data Ingestion<br/>Validation & Parsing]
-        RULES[Rule Application<br/>Marketplace-Specific]
-        CORRECT[Auto-Correction<br/>ML-Powered Fixes]
-        EVENT[Event Generation<br/>CloudEvents Standard]
-    end
-    
-    subgraph "Event Store"
-        SOURCING[Event Sourcing<br/>Immutable History]
-        AUDIT[Audit Trail<br/>LGPD Compliance]
-    end
-    
-    subgraph "Intelligence Layer"
-        AGGREGATE[Data Aggregation<br/>Anonymous + Secure]
-        ANALYZE[Pattern Analysis<br/>ML Models]
-        BENCHMARK[Benchmarking<br/>Segment Comparison]
-        PREDICT[Predictions<br/>Future Performance]
-    end
-    
-    subgraph "Insights & Actions"
-        DASHBOARD[Personal Dashboard<br/>Catalog Health]
-        ALERTS[Smart Alerts<br/>Performance Drops]
-        REPORTS[Market Reports<br/>Competitive Intel]
-        RECOMMEND[Recommendations<br/>Optimization Paths]
-    end
-    
-    CSV --> INGEST
-    API --> INGEST  
-    BULK --> INGEST
-    
-    INGEST --> RULES
-    RULES --> CORRECT
-    CORRECT --> EVENT
-    EVENT --> SOURCING
-    EVENT --> AUDIT
-    
-    SOURCING --> AGGREGATE
-    AGGREGATE --> ANALYZE
-    ANALYZE --> BENCHMARK
-    ANALYZE --> PREDICT
-    
-    BENCHMARK --> DASHBOARD
-    PREDICT --> ALERTS
-    ANALYZE --> REPORTS
-    BENCHMARK --> RECOMMEND
-    
-    classDef processing fill:#fff3e0
-    classDef intelligence fill:#e8f5e8
-    classDef insights fill:#e3f2fd
-    
-    class INGEST,RULES,CORRECT processing
-    class AGGREGATE,ANALYZE,BENCHMARK,PREDICT intelligence
-    class DASHBOARD,ALERTS,REPORTS,RECOMMEND insights
-```
+### ✅ Phase 1: Foundation (Current)
+- Domain-driven architecture with clean separation
+- Multi-tenant job processing with security
+- Real-time updates via Server-Sent Events
+- LGPD-compliant audit logging
+- Comprehensive test coverage
+
+### 🚧 Phase 2: Intelligence Platform (Q2 2025)
+- **Anonymous Benchmarking**: Compare performance against market segments
+- **Rule Engine**: Marketplace-specific validation and correction rules  
+- **Intelligence API**: Personal analytics and market insights
+- **Web Dashboard**: React dashboard for catalog health monitoring
+- **SDKs**: JavaScript, Python, and Java client libraries
+
+### 📋 Phase 3: Predictive Intelligence (Q3-Q4 2025)
+- **ML Models**: Predictive catalog health scoring
+- **Market Trends**: Cross-marketplace intelligence and forecasting
+- **Optimization Engine**: Automated catalog improvement suggestions
+- **Enterprise Features**: Custom reporting and dedicated support
+
+---
+
+## 🔒 Security & Compliance
+
+### Multi-Tenant Security
+- **Complete Isolation**: Tenant data never crosses boundaries
+- **Authentication**: JWT tokens with tenant validation
+- **Authorization**: Scope-based access control
+- **Rate Limiting**: Per-tenant quotas to prevent abuse
+
+### LGPD Compliance
+- **Data Minimization**: Only collect necessary data for processing
+- **Consent Management**: Clear opt-in/opt-out mechanisms
+- **Right to Deletion**: Complete data removal on request
+- **Audit Trails**: Immutable logs of all data operations
+- **Anonymization**: No PII in cross-tenant analytics
+
+### Security Features
+- **Idempotency Keys**: Prevent duplicate operations and replay attacks
+- **CSV Hardening**: Block formula injection (=, +, -, @)
+- **CORS Protection**: Restricted origins and headers
+- **Security Headers**: HSTS, CSP, X-Frame-Options
+- **Request Tracing**: Correlation IDs for security monitoring
 
 ---
 
 ## 🏗️ Contributing
 
-We're building ValidaHub as an **open intelligence platform**. Contributions welcome!
+ValidaHub welcomes contributions! We're building the future of e-commerce intelligence.
 
 ### Development Setup
 
 ```bash
 # Install development dependencies
 pip install -r requirements-dev.txt
-npm install
 
-# Run tests
-make test                # All tests
-make test.unit          # Unit tests only
-make test.integration   # Integration tests
-make check.arch         # Architecture compliance
+# Run tests before committing
+make test               # All tests
+make test.unit         # Fast unit tests
+make check.arch        # Architecture validation
 
 # Code quality
-make lint               # Ruff + ESLint
-make type-check         # mypy + tsc
-make format             # Auto-format code
+make lint              # Check code style
+make format            # Auto-format code
 ```
-
-### Architecture Principles
-
-- **Domain-Driven Design**: Pure domain logic, ports & adapters
-- **Event Sourcing**: Every change is an event, full audit trail
-- **Contract-First**: OpenAPI 3.1 as single source of truth
-- **Test-Driven**: RED → GREEN → REFACTOR cycle
-- **Telemetry-First**: Structured logging, metrics, traces
 
 ### Contribution Guidelines
 
 1. **Fork & Branch**: Create feature branches from `main`
-2. **Conventional Commits**: `feat(domain): add catalog validation`
-3. **Tests Required**: Unit + integration tests for new features  
-4. **Architecture Tests**: Verify layer separation compliance
-5. **Documentation**: Update ADRs for architectural decisions
+2. **Architecture First**: Respect domain boundaries and clean architecture
+3. **Test Coverage**: Write tests for new features (>80% coverage required)
+4. **Conventional Commits**: Use `feat(domain): add job validation`
+5. **Small PRs**: Keep changes under 400 lines (soft limit: 200)
 
----
+### Architecture Rules (Enforced by Tests)
 
-## 📊 Roadmap & Intelligence Evolution
-
-### Phase 1: Foundation Intelligence (Q1 2025)
-**Theme**: "Your Catalog Health Dashboard"
-
-- ✅ Personal analytics tracking
-- ✅ Error pattern analysis  
-- ✅ Processing time trends
-- ✅ Basic improvement suggestions
-
-### Phase 2: Competitive Intelligence (Q2-Q3 2025)
-**Theme**: "How You Compare to Market"
-
-- 🚧 Anonymous benchmarking system
-- 📋 Market trend identification
-- 📋 Segment performance comparison
-- 📋 Best practices recommendations
-
-### Phase 3: Predictive Intelligence (Q4 2025+)
-**Theme**: "Your Marketplace Oracle"
-
-- 📋 Catalog health forecasting
-- 📋 Error prevention predictions
-- 📋 Market trend predictions
-- 📋 Optimization roadmaps
-
----
-
-## 🔒 Privacy & Legal
-
-### LGPD Compliance
-
-ValidaHub is **privacy-first** and fully compliant with Brazil's LGPD (Lei Geral de Proteção de Dados):
-
-- **Anonymous Benchmarking**: No PII in comparative analytics
-- **Data Minimization**: Only collect what's necessary for intelligence
-- **Consent Management**: Clear opt-in/opt-out for data usage
-- **Right to Deletion**: Complete data removal on request
-- **Audit Trails**: Immutable logs of all data access
-- **Security by Design**: Encryption at rest and in transit
-
-### Security Features
-
-- **Idempotency Keys**: Prevent duplicate operations
-- **Rate Limiting**: Per-tenant quotas and throttling
-- **JWT + Scopes**: Fine-grained access control  
-- **CSV Security**: Formula injection prevention
-- **Audit Logging**: Complete operation trail
-- **Correlation IDs**: Request tracing across services
+```bash
+# These import rules are validated by CI
+src/domain/           # ❌ Cannot import from application/ or infrastructure/
+src/application/      # ❌ Cannot import from infrastructure/
+src/infrastructure/   # ✅ Can import from domain/ and application/
+```
 
 ---
 
 ## 📞 Support & Community
 
 ### Getting Help
-
-- **Documentation**: [docs/](docs/) - Comprehensive guides and ADRs
-- **API Reference**: [OpenAPI Spec](docs/architecture/API.md)
+- **Documentation**: [docs/architecture/](docs/architecture/) - Technical guides and ADRs
 - **GitHub Issues**: Bug reports and feature requests
-- **Discussions**: Architecture and product discussions
+- **GitHub Discussions**: Architecture and product discussions
 
-### Enterprise Support
-
-For enterprises requiring SLAs, custom integrations, or dedicated support:
-
-- **Email**: enterprise@validahub.com
-- **Calendar**: [Book a demo](https://calendar.validahub.com)
-- **Slack**: Join our partner channel
+### Project Structure
+- **Domain Models**: `src/domain/job.py`, `src/domain/value_objects.py`
+- **Use Cases**: `src/application/use_cases/`
+- **API Routes**: `apps/api/routers/jobs.py`
+- **Tests**: `tests/unit/`, `tests/integration/`, `tests/architecture/`
+- **Documentation**: `docs/adr/` - Architecture Decision Records
 
 ---
 
@@ -492,7 +403,7 @@ ValidaHub is released under the [MIT License](LICENSE).
 
 <div align="center">
 
-**[🚀 Get Started](https://app.validahub.com)** • 
+**[🚀 Get Started](#quick-start)** • 
 **[📖 Documentation](docs/)** • 
 **[💬 Community](https://github.com/validahub/validahub-alpha/discussions)** •
 **[🐛 Issues](https://github.com/validahub/validahub-alpha/issues)**

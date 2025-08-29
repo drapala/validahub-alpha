@@ -1,385 +1,312 @@
-**TL;DR:** Organizei toda a discussão em um `claude.md` estruturado com 12 seções cobrindo arquitetura, stack, regras de engenharia, telemetria e integração plug-and-play. Pronto para colar no repo e começar o vibecoding.
+# CLAUDE.md
 
----
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# claude.md - ValidaHub Engineering Playbook
+## Development Commands
 
-## 1. Visão e Arquitetura
-
-### Princípios Fundamentais
-- **DDD + Ports & Adapters**: Domínio puro, casos de uso orquestrando portas, adapters plugáveis
-- **Contratos únicos**: OpenAPI 3.1 como fonte da verdade, tipos gerados automaticamente
-- **Multi-tenant by design**: `tenant_id` em dados, logs, métricas e traces
-- **Telemetria-first**: Eventos padronizados (CloudEvents) para BI desde o MVP
-- **Segurança by default**: Idempotência, rate limiting, audit log, CSV hardening
-- **Observabilidade completa**: OpenTelemetry (logs/metrics/traces), correlation IDs
-
-### Estrutura do Repositório
-```
-validahub/
-├── apps/
-│   ├── api/          # FastAPI expõe casos de uso via ports
-│   └── web/          # Next.js 14 (dashboard + landing)
-├── packages/
-│   ├── contracts/    # OpenAPI, schemas, eventos CloudEvents
-│   ├── domain/       # Entidades, VOs, agregados, eventos puros
-│   ├── application/  # Casos de uso + ports (interfaces)
-│   ├── infra/        # Adapters: Postgres, Redis, S3, SSE
-│   ├── rules/        # YAMLs de mapeamento e regras por marketplace
-│   ├── shared/       # Telemetria SDK, utils, errors
-│   └── analytics/    # dbt models, métricas, fatos e dimensões
-├── tests/
-│   ├── unit/         # pytest + golden tests
-│   ├── integration/  # API/contracts/DB
-│   └── architecture/ # Testes de camadas
-├── docker/           # compose para dev (pg, redis, minio, otel)
-├── .github/workflows/
-├── .editorconfig
-├── README.md
-└── claude.md         # ESTE ARQUIVO
+### Quick Start
+```bash
+make up                 # Start PostgreSQL, Redis, MinIO, OpenTelemetry
+make db.migrate         # Run Alembic migrations
+make contracts.gen      # Generate TypeScript types from OpenAPI
+make dev                # Start FastAPI development server
 ```
 
-## 2. Stack Tecnológica
+### Testing
+```bash
+# Run all tests with coverage
+pytest tests/ -v --tb=short --cov=packages --cov-report=term-missing
 
-### Core
-- **Backend**: FastAPI + Pydantic + SQLAlchemy + Alembic
-- **Frontend**: Next.js 14 (App Router) + React + Tailwind + shadcn/ui
-- **DB**: PostgreSQL 15 (JSONB, particionamento, RLS opcional)
-- **Queue**: Redis Streams → Kafka (escala futura)
-- **Storage**: S3/MinIO com presigned URLs
-- **Contracts**: OpenAPI 3.1 → openapi-typescript → ts-rest
+# Run specific test categories
+pytest tests/unit/ -v --tb=short              # Unit tests only
+pytest tests/unit/domain/ -v --tb=short        # Domain layer tests
+pytest tests/integration/ -v --tb=short        # Integration tests
+pytest tests/architecture/ -v --tb=short       # Architecture validation
 
-### DevOps & Observabilidade
-- **Infra**: Docker Compose (dev), Terraform (prod)
-- **CI/CD**: GitHub Actions
-- **Secrets**: Doppler/Vault (NUNCA .env no repo)
-- **Observability**: OpenTelemetry, Prometheus, Sentry
-- **Security**: JWT + scopes, CORS restritivo, rate limiting
+# Run single test file
+pytest tests/unit/domain/test_job.py -v --tb=short
 
-## 3. Modelo de Domínio
+# Run with Docker
+docker-compose run test                        # All tests
+docker-compose run test-domain                 # Domain tests only
+```
 
-### Entidades Core
+### Code Quality
+```bash
+make lint              # Run ruff linting
+make format            # Format with black and ruff
+make check.arch        # Validate layer dependencies
+ruff check src/ tests/ # Check specific directories
+black src/ tests/      # Format specific directories
+```
+
+### Infrastructure Management
+```bash
+make up                # Start all services
+make down              # Stop all services  
+make db.reset          # Reset database (asks for confirmation)
+make logs              # Show Docker logs
+make ps                # Show running containers
+```
+
+## Architecture Overview
+
+### Domain-Driven Design with Clean Architecture
+
+The codebase follows strict DDD principles with hexagonal architecture (Ports & Adapters):
+
+```
+src/
+├── domain/           # Pure business logic - NO framework dependencies
+│   ├── job.py       # Job aggregate with state transitions
+│   ├── value_objects.py  # Immutable value objects (TenantId, JobId, etc.)
+│   └── errors.py    # Domain-specific exceptions
+│
+├── application/      # Use cases and ports - NO infrastructure imports
+│   ├── use_cases/   # Business operations (submit_job, retry_job, get_job)
+│   ├── ports.py     # Abstract interfaces (JobRepository, EventBus, etc.)
+│   └── idempotency/ # Idempotency handling for safe retries
+│
+└── infrastructure/   # Concrete implementations - CAN import from domain/application
+    ├── repositories/ # Database access (SQLAlchemy)
+    ├── event_bus/    # Redis event streaming
+    ├── auth/         # JWT authentication
+    └── middleware/   # FastAPI middleware
+```
+
+**Critical Rules:**
+- `domain/` NEVER imports from `application/` or `infrastructure/`
+- `application/` NEVER imports from `infrastructure/`
+- `infrastructure/` can import from both `domain/` and `application/`
+- Architecture tests in `tests/architecture/` enforce these rules
+
+### Event Sourcing & Multi-Tenancy
+
+Every operation generates CloudEvents with full audit trail:
+- All data includes `tenant_id` for complete isolation
+- Events follow CloudEvents 1.0 specification
+- Idempotency keys prevent duplicate operations
+- Complete audit log with who/when/what/request_id
+
+### Key Domain Concepts
+
+**Job Aggregate:**
+- Central entity representing CSV validation/correction work
+- State machine: queued → running → succeeded/failed
+- Immutable after creation except for state transitions
+- Contains counters for errors/warnings/total items
+
+**Value Objects:**
+- `TenantId`: Multi-tenant isolation identifier
+- `JobId`: Unique job identifier (UUID)
+- `IdempotencyKey`: Prevents duplicate submissions
+- `RulesProfileId`: Marketplace rule version tracking
+
+## Testing Strategy
+
+### Test Organization
+```
+tests/
+├── unit/           # Fast, isolated tests with mocks
+│   ├── domain/     # Pure domain logic tests
+│   ├── application/# Use case tests with mocked ports
+│   └── compliance/ # LGPD compliance tests
+├── integration/    # Tests with real databases/services
+└── architecture/   # Layer dependency validation
+```
+
+### Golden Tests
+For rule engine outputs, use golden tests that compare actual output against expected fixtures:
+- Input: `tests/fixtures/input/*.csv`
+- Expected: `tests/fixtures/expected/*.csv`
+- Prevents unintended format changes
+
+## Security & Compliance
+
+### LGPD (Brazilian GDPR) Compliance
+- Anonymous benchmarking without PII
+- Data retention policies enforced
+- Right to deletion implemented
+- Audit trails for all data access
+- Consent management system
+
+### Security Requirements
+- `Idempotency-Key` header required for POST /jobs
+- Rate limiting per tenant via Redis
+- CSV injection prevention (blocks formulas starting with =+-@)
+- JWT authentication with scopes
+- Secrets management via Doppler/Vault (never in .env)
+
+## Conventional Commits & PR Guidelines
+
+### Commit Format
+```
+type(scope): description
+
+Types: feat, fix, chore, refactor, docs, test, perf, build, ci
+Scopes: domain, application, infra, api, web, contracts, telemetry
+```
+
+### PR Size Limits
+- Soft limit: 200 lines
+- Hard limit: 400 lines (CI fails above)
+- Override with `size/override` label + justification
+
+### Branch Naming
+```
+feat/domain-job-validation
+fix/api-rate-limiting
+chore/deps-update
+refactor/application-ports
+```
+
+## Telemetry & Observability
+
+### Structured Logging
+All logs must include:
+- `tenant_id`: Multi-tenant context
+- `request_id`: Correlation across services
+- `trace_id`: OpenTelemetry trace context
+- Use `src/shared/logging/` for consistent formatting
+
+### Metrics (SLOs)
+- Job success rate: ≥ 99%
+- P95 latency: ≤ 30 seconds
+- CSV processing: 50k lines ≤ 3 seconds
+
+## API Development
+
+### FastAPI Structure
 ```python
-Job:
-  id: UUID
-  tenant_id: str
-  seller_id: str
-  channel: str
-  type: str
-  status: JobStatus
-  file_ref: str
-  counters: {errors: int, warnings: int, total: int}
-  idempotency_key: Optional[str]
-  rules_profile_id: str  # ex: "ml@1.2.3"
-  created_at: datetime
-  updated_at: datetime
-
-JobStatus: queued | running | succeeded | failed | cancelled | expired | retrying
+# apps/api/routers/jobs.py
+@router.post("/jobs")
+async def submit_job(
+    request: SubmitJobRequest,
+    idempotency_key: str = Header(...),
+    tenant_id: str = Depends(get_tenant_id),
+    job_repository: JobRepository = Depends(get_job_repository)
+):
+    # Use case instantiation and execution
+    pass
 ```
 
-### Eventos de Domínio (CloudEvents)
-```json
-{
-  "id": "uuid",
-  "specversion": "1.0",
-  "source": "apps/api",
-  "type": "job.succeeded",
-  "time": "2025-08-28T23:10:00Z",
-  "subject": "job:6c0e...",
-  "trace_id": "...",
-  "tenant_id": "t_123",
-  "actor_id": "seller_456",
-  "schema_version": "1",
-  "data": {
-    "job_id": "6c0e...",
-    "counters": {"errors": 2, "warnings": 3, "total": 120},
-    "duration_ms": 8423
-  }
-}
-```
+### OpenAPI Contract
+- Contract-first development
+- OpenAPI 3.1 spec defines all endpoints
+- Types generated automatically
+- Located at `packages/contracts/openapi.yaml`
 
-## 4. Regras de Engenharia
+## Working with Rules Engine
 
-### Camadas (Obrigatório)
-- `domain/` não importa NADA de framework
-- `application/` não importa `infra/*`
-- `infra/` pode importar `application/` e `domain/`
-- Testes de arquitetura no CI validam essas regras
-
-### SOLID Pragmático
-- **SRP**: Cada caso de uso faz uma coisa
-- **DIP**: Tudo que conversa com o mundo externo é Port
-- **ISP**: Interfaces pequenas e focadas
-- **OCP/LSP**: Apenas quando há variação real
-
-### Object Calisthenics (Subset)
-- Métodos ≤ 25 linhas, classes ≤ 200 linhas
-- Value Objects para conceitos do domínio (imutáveis)
-- Evitar boolean params, preferir enums
-- Máximo 1 nível de indentação em casos de uso
-
-### Segurança Mandatória
-- `Idempotency-Key` obrigatório em POSTs que criam recursos
-- Rate limiting por tenant via Redis
-- CSV hardening: bloquear fórmulas (`^[=+\-@]`)
-- Audit log imutável com `who, when, what, request_id`
-- Secrets via Doppler/Vault
-
-## 5. Regras de PR e Commits
-
-### Conventional Commits
-```
-type(scope)!: mensagem curta
-
-Types: feat, fix, chore, refactor, docs, test, perf, build, ci, revert, rules, contracts, telemetry
-Scopes: domain, application, infra, api, web, contracts, rules, analytics, ops
-```
-
-### Branching
-```
-feat/<scope>-<slug>
-fix/<scope>-<slug>
-chore/<scope>-<slug>
-refactor/<scope>-<slug>
-```
-
-### Limites de PR
-- Soft: ≤ 200 linhas alteradas
-- Hard: ≤ 400 linhas (CI falha acima disso)
-- Exceção: label `size/override` com justificativa
-
-### Checklist de PR
-- [ ] Título segue Conventional Commits
-- [ ] OpenAPI atualizado se contrato mudou
-- [ ] Testes adicionados/ajustados
-- [ ] Respeita camadas de arquitetura
-- [ ] Logs com `tenant_id` e `request_id`
-- [ ] Migração DB reversível
-
-## 6. Sistema de Regras Agnóstico
-
-### Canonical CSV Model (CCM)
-```
-sku, title, description, brand, gtin, ncm,
-price_brl, currency, stock,
-weight_kg, length_cm, width_cm, height_cm,
-category_path, images[],
-attributes: {key: value}
-```
-
-### Estrutura de Rule Packs
+### Rule Pack Structure
 ```
 packages/rules/
   marketplace/
     mercado_livre/1.0/
-      mapping.yaml     # marketplace → canônico
-      ruleset.yaml     # validações e correções
-    magalu/1.0/
-      mapping.yaml
-      ruleset.yaml
+      mapping.yaml     # Field mappings
+      ruleset.yaml     # Validation rules
 ```
 
-### Versionamento de Regras
-- **SemVer**: major.minor.patch
-- **Auto-apply**: patch sempre, minor com shadow period
-- **Major changes**: opt-in com simulador de impacto
-- **Job tracking**: cada job grava `rules_profile_id@version`
+### Rule Versioning
+- SemVer: major.minor.patch
+- Patch versions auto-applied
+- Minor versions with shadow period
+- Major versions require opt-in
 
-## 7. Telemetria e BI-Ready
+## Database Migrations
 
-### Event Outbox Pattern
-```sql
-CREATE TABLE event_outbox (
-  id uuid PRIMARY KEY,
-  tenant_id text NOT NULL,
-  type text NOT NULL,
-  occurred_at timestamptz NOT NULL DEFAULT now(),
-  payload jsonb NOT NULL,
-  dispatched_at timestamptz,
-  attempt int NOT NULL DEFAULT 0
-);
-```
-
-### Storage de Eventos
-```
-s3://validahub-events/{env}/type=job.succeeded/dt=YYYY-MM-DD/tenant_id=.../*.ndjson
-```
-
-### Métricas Core (SLOs)
-- Taxa de sucesso: `jobs_succeeded / jobs_total` (SLO: ≥ 99%)
-- P95 latency: `submitted → succeeded` (SLO: ≤ 30s)
-- Erro por canal: média de erros por job
-- ROI estimado: minutos economizados × valor/hora
-
-## 8. Integração Plug & Play
-
-### TTFV < 15 minutos
-1. Quickstart 5 passos + Postman collection
-2. SDKs oficiais (JS, Python, Java)
-3. Webhooks com HMAC + replay
-4. Widget `<vh-uploader>` drop-in
-5. Partner Console com logs
-6. Suite de conformidade CLI
-
-### Endpoints Core
-```
-POST /jobs              # Idempotency-Key required
-GET  /jobs/{id}         # Status + counters
-POST /jobs/{id}/retry   # Reprocessamento
-GET  /jobs/stream       # SSE por tenant
-GET  /jobs/{id}/download # Presigned URL
-```
-
-## 9. Prompts Claude CLI
-
-### A. Criar OpenAPI inicial
-```
-Crie packages/contracts/openapi.yaml com:
-- Security: Bearer JWT com scopes (jobs:read, jobs:write)
-- Headers: X-Tenant-Id, X-Request-Id, Idempotency-Key
-- Schemas: JobStatus enum, Job, SubmitJobRequest/Response
-- Paths: POST /jobs, GET /jobs/{id}, POST /jobs/{id}/retry, GET /jobs/stream (SSE)
-- Exemplos em todas as responses
-```
-
-### B. Domínio puro
-```
-Em packages/domain, crie:
-- value_objects.py: JobId, TenantId, SellerId, Channel, IdempotencyKey
-- enums.py: JobStatus (queued, running, succeeded, failed, cancelled, expired, retrying)
-- events.py: JobSubmitted, JobStarted, JobSucceeded, JobFailed (CloudEvents)
-- job.py: agregado Job com invariantes e transições de estado
-Inclua testes unitários cobrindo transições válidas e inválidas
-```
-
-### C. Casos de uso
-```
-Em packages/application:
-- ports.py: JobRepository, EventBus, ObjectStorage, RateLimiter
-- use_cases/submit_job.py: valida rate limit, cria Job, persiste, publica evento
-- use_cases/retry_job.py: valida status elegível, cria novo Job
-Escreva testes com mocks das ports
-```
-
-### D. Adapters de infraestrutura
-```
-Em packages/infra:
-- SQLAlchemy models com UNIQUE(tenant_id, idempotency_key)
-- Redis EventBus via Streams
-- S3/MinIO ObjectStorage com presigned URLs
-- RateLimiter com token bucket Redis
-Inclua docker-compose.yml com postgres, redis, minio
-```
-
-### E. API FastAPI
-```
-Crie apps/api com:
-- Carregamento do OpenAPI de packages/contracts
-- Middlewares: X-Request-Id, logs JSON, JWT auth
-- Endpoint SSE /jobs/stream com keep-alive 20s
-- Health/readiness endpoints
-- Testes de contrato validando responses contra OpenAPI
-```
-
-### F. Frontend Next.js
-```
-Crie apps/web com:
-- shadcn/ui + Tailwind configurados
-- Client fetch tipado dos types gerados
-- Tabela de Jobs com status badges
-- Hook SSE para toasts de notificação
-- Upload com presigned URL
-```
-
-### G. Golden tests
-```
-Crie tests/unit/golden/test_corrections.py:
-- Para cada CSV em tests/fixtures/input/*.csv
-- Roda pipeline e compara com tests/fixtures/expected/*.csv
-- Bloqueia mudanças não intencionais no formato
-```
-
-### H. Telemetria SDK
-```
-Em packages/shared/telemetry:
-- envelope.py: builder CloudEvents com trace/tenant
-- sinks.py: ConsoleSink, RedisSink, S3Sink
-- emitter.py: emit_event, metric, span
-- validators.py: validação contra JSON Schema
-```
-
-### I. Rule pack compiler
-```
-Crie packages/rules/compiler:
-- compile_mapping.py: YAML → IR para mapeamento
-- compile_ruleset.py: YAML → IR para regras
-- validate.py: valida YAMLs contra schemas
-CI deve compilar e cachear IR
-```
-
-### J. CI/CD completo
-```
-Configure .github/workflows/ci.yml:
-- Matrix build (api, web)
-- Lint (ruff/eslint), type-check (mypy/tsc)
-- Testes unitários e de contrato
-- Validação de arquitetura (camadas)
-- Compilação de rule packs
-- Size check de PR (≤400 linhas)
-```
-
-## 10. Bootstrap Commands
-
+### Using Alembic
 ```bash
-make up                 # Sobe docker-compose
-make db.migrate         # Roda Alembic migrations
-make contracts.gen      # Gera tipos do OpenAPI
-make rules.compile      # Compila YAMLs → IR
-make test               # Roda todos os testes
-make check.arch         # Valida dependências entre camadas
+# Create new migration
+alembic revision -m "Add job_metadata column"
+
+# Run migrations
+alembic upgrade head
+
+# Rollback one version
+alembic downgrade -1
 ```
 
-## 11. Enforcement & Quality Gates
+### Migration Requirements
+- All migrations must be reversible
+- Include both upgrade and downgrade functions
+- Test rollback before merging
 
-### pyproject.toml
-```toml
-[tool.ruff]
-line-length = 100
-target-version = "py311"
-select = ["E","F","I","C90","B","UP","PL"]
+## Docker Development
 
-[tool.ruff.lint.mccabe]
-max-complexity = 10
+### Service Ports
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
+- MinIO: `localhost:9000` (console: `9001`)
+- Jaeger UI: `http://localhost:16686`
+- FastAPI: `http://localhost:8000`
 
-[tool.mypy]
-python_version = "3.11"
-strict = true
-disallow_untyped_defs = true
-```
+### Database Credentials (Development Only)
+- Database: `validahub`
+- User: `validahub`
+- Password: `validahub123`
 
-### Pre-commit hooks
-```yaml
-repos:
-  - repo: local
-    hooks:
-      - id: check-contracts
-        name: Check OpenAPI sync
-        entry: make contracts.check
-      - id: check-architecture
-        name: Check layer dependencies
-        entry: make check.arch
-```
+## Common Development Tasks
 
-## 13. Métricas de Uso dos Agents
+### Adding a New Use Case
+1. Define the use case in `src/application/use_cases/`
+2. Create required ports in `src/application/ports.py`
+3. Implement ports in `src/infrastructure/`
+4. Write unit tests with mocked ports
+5. Add integration tests with real implementations
 
-### Telemetria de Agents
-Trackear para otimização do workflow:
+### Modifying Domain Logic
+1. Update domain entities in `src/domain/`
+2. Ensure no framework imports
+3. Write comprehensive unit tests
+4. Run architecture tests: `pytest tests/architecture/`
 
+### Adding API Endpoints
+1. Update OpenAPI spec if contract changes
+2. Implement handler in `apps/api/routers/`
+3. Use dependency injection for repositories
+4. Include idempotency and tenant context
+5. Add integration tests
+
+## Performance Considerations
+
+### Database Optimization
+- Use indexes for tenant_id + frequently queried fields
+- Consider partitioning for large tables
+- Use JSONB for flexible schema fields
+- Implement connection pooling
+
+### Caching Strategy
+- Redis for rate limiting
+- Cache rule compilations
+- Session-based caching for validations
+- Use TTLs to prevent stale data
+
+## Debugging Tips
+
+### Structured Logging
 ```python
-# packages/shared/telemetry/agent_metrics.py
-AGENT_METRICS = {
-    "agent_calls_total": Counter("agent", "command"),
-    "delegation_chain_length": Histogram(),
-    "fallback_rate": Gauge(),
-    "most_used_pairs": Counter("from_agent", "to_agent")
-}
+from src.shared.logging import get_logger
+
+logger = get_logger(__name__)
+logger.info("Processing job", job_id=job.id, tenant_id=tenant_id)
+```
+
+### Correlation IDs
+Track requests across services using X-Request-Id header
+
+### Docker Logs
+```bash
+docker-compose logs -f api     # Follow API logs
+docker-compose logs postgres    # Check database logs
+```
+
+## Important File Locations
+
+- API Implementation: `apps/api/main.py`
+- Domain Models: `src/domain/job.py`
+- Use Cases: `src/application/use_cases/`
+- Database Models: `src/infrastructure/repositories/`
+- Configuration: `src/application/config.py`
+- Tests: `tests/unit/`, `tests/integration/`
+- Documentation: `docs/architecture/`, `docs/adr/`

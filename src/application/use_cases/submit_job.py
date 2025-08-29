@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any
 from uuid import uuid4
 
 from src.application.errors import RateLimitExceeded, ValidationError
-from src.application.ports import JobRepository, RateLimiter, EventBus
+from src.application.ports import JobRepository, RateLimiter, EventBus, LogPublisher
 from src.domain.job import Job, JobStatus
 from src.domain.value_objects import TenantId, IdempotencyKey, Channel, FileReference, RulesProfileId
 from shared.logging.context import get_correlation_id
@@ -81,7 +81,8 @@ class SubmitJobUseCase:
         self,
         job_repository: JobRepository,
         rate_limiter: RateLimiter,
-        event_bus: EventBus
+        event_bus: EventBus,
+        log_publisher: LogPublisher
     ) -> None:
         """
         Initialize use case with dependencies.
@@ -90,10 +91,12 @@ class SubmitJobUseCase:
             job_repository: Repository for job persistence
             rate_limiter: Rate limiter for tenant requests
             event_bus: Event bus for publishing domain events
+            log_publisher: Publisher for domain events as logs
         """
         self._job_repository = job_repository
         self._rate_limiter = rate_limiter
         self._event_bus = event_bus
+        self._log_publisher = log_publisher
         self._logger = get_logger("application.submit_job")
     
     def execute(self, request: SubmitJobRequest) -> SubmitJobResponse:
@@ -219,10 +222,26 @@ class SubmitJobUseCase:
             correlation_id=correlation_id
         )
         
-        # Create job with timing
+        # Create job with timing and correlation ID
         job_creation_start = time.time()
-        job = Job.create(tenant_id)
+        job = Job.create(tenant_id, correlation_id)
         job_creation_duration_ms = (time.time() - job_creation_start) * 1000
+        
+        # Publish domain events from job creation
+        try:
+            domain_events = job.get_domain_events()
+            if domain_events:
+                self._log_publisher.publish_events(domain_events)
+                job = job.clear_domain_events()  # Clear events after publishing
+        except Exception as e:
+            # Log error but don't fail use case
+            self._logger.error(
+                "failed_to_publish_job_creation_events",
+                job_id=str(job.id.value),
+                tenant_id=tenant_id.value,
+                error=str(e),
+                correlation_id=correlation_id
+            )
         
         self._logger.debug(
             "domain_job_created",

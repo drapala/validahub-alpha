@@ -5,7 +5,7 @@ All external dependencies must be implemented through these interfaces.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, List
 
 from src.domain.job import Job
 from src.domain.value_objects import TenantId, IdempotencyKey
@@ -76,4 +76,77 @@ class EventBus(ABC):
         Args:
             event: Domain event to publish
         """
+        pass
+
+
+class LogPublisher(ABC):
+    """Port for publishing domain events as structured logs and audit events."""
+    
+    @abstractmethod
+    def publish_events(self, events: List['DomainEvent']) -> None:
+        """
+        Publish a list of domain events as structured logs.
+        
+        This port is responsible for:
+        - Converting domain events to structured logs
+        - Sending audit events to the audit system
+        - Ensuring proper log levels and formatting
+        - Handling correlation IDs and tenant context
+        
+        Args:
+            events: List of domain events to publish as logs
+        """
+        pass
+
+
+class SecretsManager(ABC):
+    """Port for secure secrets and configuration management."""
+    
+    @abstractmethod
+    def get(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """
+        Get a configuration value by key.
+        
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+            
+        Returns:
+            Configuration value or default
+        """
+        pass
+    
+    @abstractmethod
+    def get_database_url(self) -> str:
+        """Get database connection URL."""
+        pass
+    
+    @abstractmethod
+    def get_redis_url(self) -> str:
+        """Get Redis connection URL."""
+        pass
+    
+    @abstractmethod
+    def get_jwt_keys(self) -> tuple[str, str]:
+        """
+        Get JWT public and private keys.
+        
+        Returns:
+            Tuple of (public_key, private_key)
+        """
+        pass
+    
+    @abstractmethod
+    def get_s3_config(self) -> dict:
+        """Get S3/MinIO configuration."""
+        pass
+    
+    @abstractmethod
+    def get_opentelemetry_config(self) -> dict:
+        """Get OpenTelemetry configuration."""
+        pass
+    
+    @abstractmethod
+    def refresh_cache(self) -> None:
+        """Refresh cached configuration values."""
         pass

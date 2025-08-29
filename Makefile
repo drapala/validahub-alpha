@@ -113,64 +113,7 @@ test.golden: ## Run golden tests for rule engine outputs
 
 # Architecture validation
 check.arch: ## Validate layer dependencies
-	@echo "Validating architecture dependencies..."
-	@python -c "
-import ast
-import os
-import sys
-
-def check_domain_imports():
-    violations = []
-    for root, dirs, files in os.walk('packages/domain'):
-        for file in files:
-            if file.endswith('.py'):
-                filepath = os.path.join(root, file)
-                try:
-                    with open(filepath, 'r') as f:
-                        tree = ast.parse(f.read())
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.ImportFrom):
-                            if node.module and ('application' in node.module or 'infra' in node.module or 'apps' in node.module):
-                                violations.append(f'{filepath}: imports {node.module}')
-                except:
-                    pass
-    return violations
-
-def check_application_imports():
-    violations = []
-    for root, dirs, files in os.walk('packages/application'):
-        for file in files:
-            if file.endswith('.py'):
-                filepath = os.path.join(root, file)
-                try:
-                    with open(filepath, 'r') as f:
-                        tree = ast.parse(f.read())
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.ImportFrom):
-                            if node.module and ('infra' in node.module or 'apps' in node.module):
-                                violations.append(f'{filepath}: imports {node.module}')
-                except:
-                    pass
-    return violations
-
-domain_violations = check_domain_imports()
-app_violations = check_application_imports()
-
-if domain_violations:
-    print('❌ Domain layer violations:')
-    for v in domain_violations:
-        print(f'  {v}')
-
-if app_violations:
-    print('❌ Application layer violations:')
-    for v in app_violations:
-        print(f'  {v}')
-
-if not domain_violations and not app_violations:
-    print('✅ Architecture dependencies are valid')
-else:
-    sys.exit(1)
-"
+	@python3 scripts/check_arch.py
 
 # Code quality
 lint: ## Run linting with ruff
