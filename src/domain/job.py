@@ -9,15 +9,14 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
-from src.domain.errors import DomainError, InvalidStateTransitionError
-from src.domain.value_objects import JobId, TenantId
+from domain.errors import DomainError, InvalidStateTransitionError
+from domain.value_objects import JobId, TenantId
 
 
 class JobStatus(Enum):
     """Job processing status with minimal state machine."""
     
     SUBMITTED = "submitted"
-    QUEUED = "queued"
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"

@@ -1,7 +1,7 @@
 """Test RulesProfileId normalization and SemVer validation."""
 
 import pytest
-from domain.value_objects import RulesProfileId
+from src.domain.value_objects import RulesProfileId
 
 
 class TestRulesProfileId:

@@ -13,26 +13,26 @@ class TestVOContracts:
     
     def test_tenant_id_equality_by_value(self):
         """TenantId equality should be based on normalized value."""
-        from domain.value_objects import TenantId
+        from src.domain.value_objects import TenantId
         
-        a = TenantId("t_acme")
-        b = TenantId("T_ACME")  # Different case
-        c = TenantId("t_zen")
+        a = TenantId("t_acme123")
+        b = TenantId("T_ACME123")  # Different case
+        c = TenantId("t_zen456")
         
         assert a == b
         assert a != c
     
     def test_tenant_id_is_immutable(self):
         """TenantId should be immutable."""
-        from domain.value_objects import TenantId
+        from src.domain.value_objects import TenantId
         
-        t = TenantId("t_acme")
+        t = TenantId("t_acme123")
         with pytest.raises(Exception):  # Any exception is fine
             object.__setattr__(t, "value", "t_mutated")
     
     def test_idempotency_key_equality_by_value(self):
         """IdempotencyKey equality should be based on value."""
-        from domain.value_objects import IdempotencyKey
+        from src.domain.value_objects import IdempotencyKey
         
         a = IdempotencyKey("test-key-123")
         b = IdempotencyKey("test-key-123")
@@ -43,7 +43,7 @@ class TestVOContracts:
     
     def test_idempotency_key_is_immutable(self):
         """IdempotencyKey should be immutable."""
-        from domain.value_objects import IdempotencyKey
+        from src.domain.value_objects import IdempotencyKey
         
         key = IdempotencyKey("test-key-123")
         with pytest.raises(Exception):  # Any exception is fine
@@ -51,9 +51,9 @@ class TestVOContracts:
     
     def test_value_objects_are_hashable(self):
         """Value objects should be hashable for use in sets/dicts."""
-        from domain.value_objects import TenantId, IdempotencyKey
+        from src.domain.value_objects import TenantId, IdempotencyKey
         
-        tenant_set = {TenantId("t_acme"), TenantId("t_zen")}
+        tenant_set = {TenantId("t_acme123"), TenantId("t_zen456")}
         assert len(tenant_set) == 2
         
         key_dict = {
@@ -64,10 +64,10 @@ class TestVOContracts:
     
     def test_value_objects_string_representation(self):
         """Value objects should have meaningful string representation."""
-        from domain.value_objects import TenantId, IdempotencyKey
+        from src.domain.value_objects import TenantId, IdempotencyKey
         
-        tenant = TenantId("t_acme")
-        assert as_str(tenant) == "t_acme"
+        tenant = TenantId("t_acme123")
+        assert as_str(tenant) == "t_acme123"
         
         key = IdempotencyKey("test-key-123")
         assert as_str(key) == "test-key-123"

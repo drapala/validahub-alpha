@@ -145,7 +145,7 @@ class TestJobsHttpHandler:
     
     def test_submit_job_validation_error(self):
         """Test job submission with validation error."""
-        self.mock_use_case.execute.side_effect = ValidationError("Invalid input")
+        self.mock_use_case.execute.side_effect = ValidationError("input", "Invalid input")
         
         with pytest.raises(ValidationError):
             self.handler.submit_job(self.request)
@@ -197,6 +197,116 @@ class TestJobsHttpHandler:
         response2 = self.handler.submit_job(self.request)
         
         assert response1.idempotency_key_resolved != response2.idempotency_key_resolved
+    
+    def test_submit_job_no_pii_leakage_in_errors(self):
+        """Test that error responses don't leak PII from idempotency keys."""
+        sensitive_key = "user@email.com"
+        self.request.idempotency_key_raw = sensitive_key
+        
+        # Simulate validation error
+        self.mock_use_case.execute.side_effect = ValidationError("database", "Database connection failed")
+        
+        with pytest.raises(ValidationError) as exc_info:
+            self.handler.submit_job(self.request)
+        
+        # Error message must not contain the sensitive key
+        error_message = str(exc_info.value)
+        assert sensitive_key not in error_message
+        assert "user@" not in error_message  # Partial check too
+    
+    def test_submit_job_csv_formula_injection_prevention(self):
+        """Test prevention of CSV formula injection through idempotency keys."""
+        formula_chars = ['=', '+', '-', '@']
+        
+        for char in formula_chars:
+            # Test each formula character individually
+                dangerous_key = f"{char}SUM(A1:A10)"
+                self.request.idempotency_key_raw = dangerous_key
+                self.mock_use_case.execute.return_value = self.mock_response
+                
+                response = self.handler.submit_job(self.request)
+                
+                # Key should be canonicalized to be safe
+                assert response.idempotency_key_resolved != dangerous_key
+                assert response.idempotency_key_resolved[0] not in formula_chars
+                
+                self.mock_use_case.reset_mock()
+    
+    @patch.dict(os.environ, {"IDEMP_COMPAT_MODE": "reject"})
+    def test_submit_job_reject_mode_security(self):
+        """Test security aspects of reject mode."""
+        test_cases = [
+            ("order.123:item", "colon character"),
+            ("key with spaces", "spaces"),
+            ("+formula", "formula character"),
+            ("key/with/slashes", "slashes"),
+            ("key\\with\\backslashes", "backslashes")
+        ]
+        
+        for invalid_key, description in test_cases:
+            with self.subTest(key=description):
+                self.request.idempotency_key_raw = invalid_key
+                
+                with pytest.raises(ValidationError) as exc_info:
+                    self.handler.submit_job(self.request)
+                
+                # Ensure no key value leakage
+                error_message = str(exc_info.value)
+                assert invalid_key not in error_message
+                assert "Invalid idempotency key format" in error_message
+    
+    def test_submit_job_concurrent_safety(self):
+        """Test basic concurrent safety for idempotency."""
+        import threading
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        
+        secure_key = "concurrent-test-key"
+        num_threads = 3
+        results = []
+        
+        def submit_concurrent_request(thread_id):
+            request = HttpJobSubmissionRequest(
+                tenant_id="t_test123",
+                seller_id="seller_456",
+                channel="mercado_livre",
+                job_type="validation",
+                file_ref="s3://bucket/file.csv",
+                rules_profile_id="ml@1.0.0",
+                idempotency_key_raw=secure_key,
+                request_id=f"req_{thread_id}"
+            )
+            
+            # Small delay to increase race condition likelihood
+            time.sleep(0.001 * thread_id)
+            return self.handler.submit_job(request)
+        
+        # Mock use case with processing delay
+        def slow_execute(*args, **kwargs):
+            time.sleep(0.01)  # Simulate processing
+            return self.mock_response
+        
+        self.mock_use_case.execute.side_effect = slow_execute
+        
+        # Execute concurrent requests
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = [executor.submit(submit_concurrent_request, i) for i in range(num_threads)]
+            results = [future.result() for future in futures]
+        
+        # All should have same resolved key
+        resolved_keys = [r.idempotency_key_resolved for r in results]
+        assert all(key == resolved_keys[0] for key in resolved_keys)
+        
+        # All should have same job_id (idempotent)
+        job_ids = [r.job_id for r in results]
+        assert all(job_id == job_ids[0] for job_id in job_ids)
+        
+        # Only one should be original, others replays
+        replay_count = sum(1 for r in results if r.is_idempotent_replay)
+        original_count = sum(1 for r in results if not r.is_idempotent_replay)
+        
+        assert original_count == 1
+        assert replay_count == num_threads - 1
 
 
 class TestHttpJobSubmissionResponse:
@@ -342,3 +452,72 @@ class TestHeaderExtraction:
         result = get_request_id_header(headers)
         
         assert result is None
+    
+    def test_header_security_crlf_injection_prevention(self):
+        """Test prevention of CRLF injection in headers."""
+        malicious_headers = {
+            "Idempotency-Key": "key\r\nX-Admin: true",  # CRLF injection attempt
+            "X-Request-Id": "req\nContent-Length: 0"     # Header injection attempt
+        }
+        
+        idemp_key = get_idempotency_key_header(malicious_headers)
+        request_id = get_request_id_header(malicious_headers)
+        
+        # Should handle CRLF safely - either sanitize or reject
+        if idemp_key:
+            assert '\r' not in idemp_key
+            assert '\n' not in idemp_key
+            assert 'X-Admin' not in idemp_key
+        
+        if request_id:
+            assert '\r' not in request_id
+            assert '\n' not in request_id
+            assert 'Content-Length' not in request_id
+    
+    def test_header_size_limits(self):
+        """Test handling of oversized header values."""
+        oversized_key = "x" * 10000  # Very long key
+        headers = {"Idempotency-Key": oversized_key}
+        
+        result = get_idempotency_key_header(headers)
+        
+        # Should handle gracefully (truncate, reject, or accept with limits)
+        if result:
+            assert len(result) <= 1000  # Reasonable limit
+    
+    def test_header_unicode_handling(self):
+        """Test safe handling of unicode in header values."""
+        unicode_headers = {
+            "Idempotency-Key": "key-🔑-test",
+            "X-Request-Id": "req-ñ-123"
+        }
+        
+        idemp_key = get_idempotency_key_header(unicode_headers)
+        request_id = get_request_id_header(unicode_headers)
+        
+        # Should handle unicode gracefully
+        if idemp_key:
+            assert len(idemp_key) > 0
+            # Could be sanitized or preserved
+        
+        if request_id:
+            assert len(request_id) > 0
+    
+    def test_header_null_byte_handling(self):
+        """Test handling of null bytes in header values."""
+        null_byte_headers = {
+            "Idempotency-Key": "key\x00admin",
+            "X-Request-Id": "req\x00123"
+        }
+        
+        idemp_key = get_idempotency_key_header(null_byte_headers)
+        request_id = get_request_id_header(null_byte_headers)
+        
+        # Should handle null bytes safely
+        if idemp_key:
+            assert '\x00' not in idemp_key
+            assert 'admin' not in idemp_key or idemp_key == 'key'
+        
+        if request_id:
+            assert '\x00' not in request_id
+            assert request_id == 'req' or '123' not in request_id

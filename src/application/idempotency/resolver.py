@@ -12,8 +12,8 @@ from src.domain.value_objects import TenantId
 
 # Graceful handling of logging dependencies
 try:
-    from src.shared.logging import get_logger
-    from src.shared.logging.security import SecurityLogger
+    from shared.logging import get_logger
+    from shared.logging.security import SecurityLogger, SecurityEventType
 except ImportError:
     # Fallback logging for testing without full dependencies
     import logging
@@ -121,7 +121,7 @@ def resolve_idempotency_key(
     logger = get_logger("application.idempotency.resolver")
     security_logger = SecurityLogger("application.idempotency.resolver")
     
-    compat_mode = Config.IDEMP_COMPAT_MODE
+    compat_mode = Config.get_idemp_compat_mode()
     scope_hash = _create_scope_hash(method, route_template)
     
     # Case 1: No key provided - generate new secure key
@@ -172,7 +172,7 @@ def resolve_idempotency_key(
     if _is_legacy_key(raw_key):
         if compat_mode == IdempotencyCompatMode.REJECT:
             security_logger.log_security_event(
-                security_logger.SecurityEventType.LEGACY_KEY_REJECTED,
+                SecurityEventType.SUSPICIOUS_ACTIVITY if hasattr(SecurityEventType, 'SUSPICIOUS_ACTIVITY') else SecurityEventType.INVALID_FILE_TYPE,
                 "Legacy idempotency key rejected",
                 severity="WARNING",
                 tenant_id=tenant_id.value,

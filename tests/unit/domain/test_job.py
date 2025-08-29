@@ -26,7 +26,7 @@ class TestJobCreation:
     
     def test_create_job_with_factory_method(self):
         """Should create job with factory method."""
-        tenant_id = TenantId("tenant_123")
+        tenant_id = TenantId("t_tenant123")
         
         job = Job.create(tenant_id)
         
@@ -39,7 +39,7 @@ class TestJobCreation:
     def test_create_job_with_constructor(self):
         """Should create job with direct constructor."""
         job_id = JobId(uuid4())
-        tenant_id = TenantId("tenant_123")
+        tenant_id = TenantId("t_tenant123")
         created_at = datetime.now(timezone.utc)
         
         job = Job(
@@ -57,7 +57,7 @@ class TestJobCreation:
     def test_job_requires_timezone_aware_datetime(self):
         """Should raise error if created_at is not timezone-aware."""
         job_id = JobId(uuid4())
-        tenant_id = TenantId("tenant_123")
+        tenant_id = TenantId("t_tenant123")
         naive_datetime = datetime.now()  # No timezone
         
         with pytest.raises(DomainError, match="created_at must be timezone-aware"):
@@ -70,7 +70,7 @@ class TestJobCreation:
     
     def test_job_is_immutable(self):
         """Should ensure Job instances are immutable."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         
         # Attempt to modify should raise error
         with pytest.raises(Exception):  # dataclass frozen=True raises FrozenInstanceError
@@ -83,7 +83,7 @@ class TestValidTransitions:
     @pytest.fixture
     def submitted_job(self):
         """Create a job in SUBMITTED status."""
-        return Job.create(TenantId("tenant_123"))
+        return Job.create(TenantId("t_tenant123"))
     
     def test_submitted_to_running_transition(self, submitted_job):
         """Should allow transition from SUBMITTED to RUNNING."""
@@ -162,7 +162,7 @@ class TestInvalidTransitions:
     
     def test_submitted_to_completed_invalid(self):
         """Should reject direct transition from SUBMITTED to COMPLETED."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         
         with pytest.raises(InvalidStateTransitionError) as exc_info:
             job.complete()
@@ -172,7 +172,7 @@ class TestInvalidTransitions:
     
     def test_submitted_to_failed_invalid(self):
         """Should reject direct transition from SUBMITTED to FAILED."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         
         with pytest.raises(InvalidStateTransitionError) as exc_info:
             job.fail()
@@ -182,7 +182,7 @@ class TestInvalidTransitions:
     
     def test_submitted_to_retrying_invalid(self):
         """Should reject transition from SUBMITTED to RETRYING."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         
         with pytest.raises(InvalidStateTransitionError) as exc_info:
             job.retry()
@@ -192,7 +192,7 @@ class TestInvalidTransitions:
     
     def test_completed_to_any_transition_invalid(self):
         """Should reject any transition from COMPLETED state."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         job = job.start()
         completed_job = job.complete()
         
@@ -218,7 +218,7 @@ class TestInvalidTransitions:
     
     def test_failed_to_running_invalid(self):
         """Should reject direct transition from FAILED to RUNNING."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         job = job.start()
         failed_job = job.fail()
         
@@ -230,7 +230,7 @@ class TestInvalidTransitions:
     
     def test_failed_to_completed_invalid(self):
         """Should reject transition from FAILED to COMPLETED."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         job = job.start()
         failed_job = job.fail()
         
@@ -242,7 +242,7 @@ class TestInvalidTransitions:
     
     def test_running_to_retrying_invalid(self):
         """Should reject direct transition from RUNNING to RETRYING."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         running_job = job.start()
         
         with pytest.raises(InvalidStateTransitionError) as exc_info:
@@ -253,7 +253,7 @@ class TestInvalidTransitions:
     
     def test_retrying_to_completed_invalid(self):
         """Should reject direct transition from RETRYING to COMPLETED."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         job = job.start()
         job = job.fail()
         retrying_job = job.retry()
@@ -266,7 +266,7 @@ class TestInvalidTransitions:
     
     def test_retrying_to_failed_invalid(self):
         """Should reject direct transition from RETRYING to FAILED."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         job = job.start()
         job = job.fail()
         retrying_job = job.retry()
@@ -283,7 +283,7 @@ class TestJobHelperMethods:
     
     def test_is_terminal_for_completed(self):
         """Should identify COMPLETED as terminal state."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         job = job.start()
         completed_job = job.complete()
         
@@ -291,7 +291,7 @@ class TestJobHelperMethods:
     
     def test_is_terminal_for_failed(self):
         """Should identify FAILED as terminal state."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         job = job.start()
         failed_job = job.fail()
         
@@ -299,7 +299,7 @@ class TestJobHelperMethods:
     
     def test_is_terminal_for_non_terminal_states(self):
         """Should identify non-terminal states correctly."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         
         # SUBMITTED
         assert job.is_terminal() is False
@@ -315,7 +315,7 @@ class TestJobHelperMethods:
     
     def test_can_retry_for_failed(self):
         """Should allow retry for FAILED state."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         job = job.start()
         failed_job = job.fail()
         
@@ -323,7 +323,7 @@ class TestJobHelperMethods:
     
     def test_can_retry_for_non_failed_states(self):
         """Should not allow retry for non-FAILED states."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         
         # SUBMITTED
         assert job.can_retry() is False
@@ -343,7 +343,7 @@ class TestJobHelperMethods:
     
     def test_string_representation(self):
         """Should have readable string representation."""
-        tenant_id = TenantId("tenant_123")
+        tenant_id = TenantId("t_tenant123")
         job = Job.create(tenant_id)
         
         str_repr = str(job)
@@ -358,7 +358,7 @@ class TestJobImmutability:
     
     def test_transitions_return_new_instances(self):
         """Should return new instances on state transitions."""
-        original = Job.create(TenantId("tenant_123"))
+        original = Job.create(TenantId("t_tenant123"))
         
         # Each transition should return a different instance
         running = original.start()
@@ -381,7 +381,7 @@ class TestJobImmutability:
     
     def test_original_unchanged_after_transitions(self):
         """Should keep original instance unchanged after transitions."""
-        original = Job.create(TenantId("tenant_123"))
+        original = Job.create(TenantId("t_tenant123"))
         original_status = original.status
         original_id = original.id
         original_tenant = original.tenant_id
@@ -403,7 +403,7 @@ class TestDomainErrors:
     
     def test_invalid_state_transition_error_message(self):
         """Should have clear error messages for invalid transitions."""
-        job = Job.create(TenantId("tenant_123"))
+        job = Job.create(TenantId("t_tenant123"))
         
         with pytest.raises(InvalidStateTransitionError) as exc_info:
             job.complete()
@@ -416,7 +416,7 @@ class TestDomainErrors:
     def test_domain_error_for_naive_datetime(self):
         """Should raise DomainError for naive datetime."""
         job_id = JobId(uuid4())
-        tenant_id = TenantId("tenant_123")
+        tenant_id = TenantId("t_tenant123")
         naive_datetime = datetime.now()  # No timezone
         
         with pytest.raises(DomainError) as exc_info:

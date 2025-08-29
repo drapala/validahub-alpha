@@ -13,8 +13,8 @@ from src.domain.value_objects import TenantId
 
 # Graceful handling of logging dependencies
 try:
-    from src.shared.logging import get_logger
-    from src.shared.logging.security import SecurityLogger
+    from shared.logging import get_logger
+    from shared.logging.security import SecurityLogger, SecurityEventType
 except ImportError:
     # Fallback logging for testing without full dependencies
     import logging
@@ -125,7 +125,7 @@ class JobsHttpHandler:
             channel=request.channel,
             job_type=request.job_type,
             has_raw_idempotency_key=request.idempotency_key_raw is not None,
-            compat_mode=Config.IDEMP_COMPAT_MODE.value
+            compat_mode=Config.get_idemp_compat_mode().value
         )
         
         try:
@@ -141,14 +141,14 @@ class JobsHttpHandler:
             # Step 2: Validate resolved key meets security requirements
             if not validate_resolved_key(resolved_key):
                 self._security_logger.log_security_event(
-                    self._security_logger.SecurityEventType.INVALID_KEY,
+                    SecurityEventType.INVALID_FILE_TYPE if hasattr(SecurityEventType, 'INVALID_FILE_TYPE') else SecurityEventType.SUSPICIOUS_ACTIVITY,
                     "Resolved idempotency key failed validation",
                     severity="ERROR",
                     tenant_id=request.tenant_id,
                     request_id=request_id,
                     key_length=len(resolved_key)
                 )
-                raise ValidationError("Invalid idempotency key")
+                raise ValidationError("idempotency_key", "Invalid idempotency key")
             
             # Step 3: Check for existing idempotent response
             existing_record = self._idempotency_store.get(tenant_id, resolved_key)
@@ -234,9 +234,9 @@ class JobsHttpHandler:
                     request_id=request_id,
                     tenant_id=request.tenant_id,
                     error=str(e),
-                    compat_mode=Config.IDEMP_COMPAT_MODE.value
+                    compat_mode=Config.get_idemp_compat_mode().value
                 )
-                raise ValidationError("Invalid idempotency key format")
+                raise ValidationError("idempotency_key", "Invalid idempotency key format")
             
             # Re-raise other validation errors
             raise

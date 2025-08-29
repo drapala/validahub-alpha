@@ -1,7 +1,7 @@
 """Test ProcessingCounters invariants and coherence."""
 
 import pytest
-from domain.value_objects import ProcessingCounters
+from src.domain.value_objects import ProcessingCounters
 
 
 class TestProcessingCounters:

@@ -7,8 +7,28 @@ import unicodedata
 from urllib.parse import urlparse
 from uuid import UUID
 
-from src.shared.logging import get_logger
-from src.shared.logging.security import SecurityLogger
+# Graceful handling of logging dependencies
+try:
+    from shared.logging import get_logger
+    from shared.logging.security import SecurityLogger, SecurityEventType
+except ImportError:
+    # Fallback logging for testing without full dependencies
+    import logging
+    def get_logger(name: str):
+        return logging.getLogger(name)
+    
+    class SecurityLogger:
+        def __init__(self, name: str):
+            self.logger = logging.getLogger(name)
+        
+        def injection_attempt(self, **kwargs):
+            self.logger.warning("Injection attempt detected", extra=kwargs)
+        
+        def log_security_event(self, event_type, message, **kwargs):
+            self.logger.warning(f"Security event: {message}", extra=kwargs)
+        
+        class SecurityEventType:
+            DANGEROUS_FILE = "dangerous_file"
 
 
 def _has_control_or_format(s: str) -> bool:
@@ -146,6 +166,10 @@ class IdempotencyKey:
 
 # Deny list for dangerous file extensions
 _DENY_EXT = {".exe", ".zip", ".bat", ".cmd", ".sh", ".dll", ".com", ".scr"}
+# Allow list for expected text formats
+_ALLOW_EXT = {".csv", ".tsv", ".txt"}
+
+_S3_BUCKET_RE = re.compile(r"^(?!\.)[a-z0-9][a-z0-9.-]{1,61}[a-z0-9](?<!\.)$")
 
 
 @dataclass(frozen=True)
@@ -165,10 +189,13 @@ class FileReference:
             )
             raise ValueError("Invalid file reference")
         
-        v = self.value or ""
+        v = (self.value or "").strip()
+        if not v:
+            raise ValueError("Invalid file reference")
         
-        # Path traversal protection: normalize backslash and check
+        # Normalize backslashes to forward slashes and collapse duplicate slashes in path part
         v_norm = v.replace("\\", "/")
+        # Quick traversal detection
         if "../" in v_norm:
             security_logger.injection_attempt(
                 injection_type="path_traversal",
@@ -176,10 +203,52 @@ class FileReference:
             )
             raise ValueError("Invalid file reference")
         
-        # Block dangerous extensions
-        low = v.lower()
+        # Identify scheme
+        parsed = urlparse(v_norm)
+        scheme = parsed.scheme
+        path = parsed.path
+        netloc = parsed.netloc
+        
+        # Normalize multiple slashes in path
+        while '//' in path:
+            path = path.replace('//', '/')
+        
+        # Apply validations by scheme
+        if scheme in ("http", "https"):
+            if not netloc:
+                raise ValueError("Invalid file reference")
+            if not path or path == "/":
+                raise ValueError("Invalid file reference")
+            key = path.lstrip('/')
+        elif scheme == "s3":
+            # s3://bucket/key
+            remainder = v_norm[5:] if v_norm.startswith('s3://') else v_norm
+            parts = remainder.split('/', 1)
+            bucket = parts[0] if parts and parts[0] else ""
+            key = parts[1] if len(parts) > 1 else ""
+            # Validate bucket per AWS S3 naming
+            if not bucket or not _S3_BUCKET_RE.match(bucket) or bucket.isnumeric() or ".." in bucket or bucket.lower() != bucket:
+                raise ValueError("Invalid file reference")
+            if not key:
+                raise ValueError("Invalid file reference")
+            # Normalize key slashes
+            while '//' in key:
+                key = key.replace('//', '/')
+        else:
+            # Plain bucket/key format
+            parts = v_norm.split('/', 1)
+            bucket = parts[0] if parts and parts[0] else ""
+            key = parts[1] if len(parts) > 1 else ""
+            if not bucket or not key:
+                raise ValueError("Invalid file reference")
+            # Normalize key slashes
+            while '//' in key:
+                key = key.replace('//', '/')
+        
+        low_key = key.lower()
+        # Extension checks: deny dangerous and allow only csv/tsv/txt
         for bad_ext in _DENY_EXT:
-            if low.endswith(bad_ext):
+            if low_key.endswith(bad_ext):
                 security_logger.log_security_event(
                     security_logger.SecurityEventType.DANGEROUS_FILE,
                     "Dangerous file extension blocked",
@@ -188,6 +257,8 @@ class FileReference:
                     file_ref=self.value,
                 )
                 raise ValueError("Invalid file reference")
+        if not any(low_key.endswith(ext) for ext in _ALLOW_EXT):
+            raise ValueError("Invalid file reference")
         
         logger.debug(
             "file_reference_created",
@@ -218,14 +289,23 @@ class FileReference:
         """Extract object key from S3 URLs or file path."""
         if self.value.startswith('s3://'):
             parts = self.value[5:].split('/', 1)
-            return parts[1] if len(parts) > 1 else ''
+            key = parts[1] if len(parts) > 1 else ''
+            while '//' in key:
+                key = key.replace('//', '/')
+            return key
         if self.value.startswith(('http://', 'https://')):
             p = urlparse(self.value)
             # Remove leading slash from path
-            return p.path.lstrip('/')
+            key = p.path.lstrip('/')
+            while '//' in key:
+                key = key.replace('//', '/')
+            return key
         # For plain bucket/key format
         parts = self.value.split('/', 1)
-        return parts[1] if len(parts) > 1 else self.value
+        key = parts[1] if len(parts) > 1 else self.value
+        while '//' in key:
+            key = key.replace('//', '/')
+        return key
     
     def __str__(self) -> str:
         return self.value

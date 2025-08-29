@@ -1,0 +1,4 @@
+# file: /Users/drapala/WebstormProjects/validahub-alpha/src/shared/logging/sanitizers.py
+# hypothesis_version: 6.138.7
+
+['***', '***MASKED***', '***REDACTED***', '/', '@', '\\D', 'api_key', 'apikey', 'auth', 'azure://', 'card_number', 'cnpj', 'cpf', 'credential', 'credit_card', 'cvv', 'email', 'file_ref', 'file_reference', 'gs://', 'idempotency_key', 'job', 'job_id', 'password', 'phone', 'pin', 'private', 'pwd', 's3://', 'secret', 'seller', 'seller_id', 'ssn', 'tenant_id', 'token']

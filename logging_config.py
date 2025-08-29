@@ -1,11 +1,12 @@
 """
-Example logging configuration for ValidaHub.
+Example logging configuration for ValidaHub (for local demos).
 
-This demonstrates how to initialize the LGPD-compliant logging system.
+This file is not used by the application/tests; it demonstrates how to initialize
+the LGPD-compliant logging system manually.
 """
 
 import os
-from packages.shared.logging import configure_logging
+from shared.logging import configure_logging
 
 def setup_logging():
     """
@@ -42,8 +43,8 @@ if __name__ == "__main__":
     # Example usage
     setup_logging()
     
-    from packages.shared.logging import get_logger
-    from packages.shared.logging.security import SecurityLogger, AuditLogger
+    from shared.logging import get_logger
+    from shared.logging.security import SecurityLogger, AuditLogger
     
     # Regular logging
     logger = get_logger("example")

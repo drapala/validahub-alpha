@@ -11,7 +11,7 @@ from src.domain.job import Job, JobStatus
 from src.domain.value_objects import TenantId, IdempotencyKey, Channel, FileReference, RulesProfileId
 # Graceful handling of logging dependencies
 try:
-    from src.shared.logging import get_logger
+    from shared.logging import get_logger
 except ImportError:
     import logging
     def get_logger(name: str):
@@ -119,9 +119,18 @@ class SubmitJobUseCase:
         # Validate input
         self._validate_request(request)
         
-        # Convert to value objects
+        # Convert to value objects (treat idempotency key as opaque if not in secure format)
         tenant_id = TenantId(request.tenant_id)
-        idempotency_key = IdempotencyKey(request.idempotency_key) if request.idempotency_key else None
+        idempotency_key = None
+        if request.idempotency_key:
+            try:
+                idempotency_key = IdempotencyKey(request.idempotency_key)
+            except ValueError:
+                # Accept legacy/opaque keys without strict VO validation; HTTP layer validates/resolves
+                class _OpaqueKey:
+                    def __init__(self, value: str) -> None:
+                        self.value = value
+                idempotency_key = _OpaqueKey(request.idempotency_key)
         
         # Check idempotency first (before rate limiting)
         if idempotency_key:
@@ -135,7 +144,7 @@ class SubmitJobUseCase:
                 )
                 return SubmitJobResponse(
                     job_id=existing_job.id,
-                    status=existing_job.status.value,
+                    status=existing_job.status if isinstance(existing_job.status, str) else existing_job.status.value,
                     file_ref=request.file_ref,
                     created_at=existing_job.created_at.isoformat()
                 )
@@ -161,7 +170,7 @@ class SubmitJobUseCase:
             job_type=request.job_type,
             file_ref=request.file_ref,
             rules_profile_id=request.rules_profile_id,
-            status=JobStatus.QUEUED,  # Change to QUEUED as expected by tests
+            status="queued",  # Application-level persisted status
             idempotency_key=request.idempotency_key,
             created_at=job.created_at,
             updated_at=job.created_at
@@ -193,12 +202,12 @@ class SubmitJobUseCase:
             "submit_job_completed",
             tenant_id=request.tenant_id,
             job_id=saved_job.id,
-            status=saved_job.status.value
+            status=saved_job.status
         )
         
         return SubmitJobResponse(
             job_id=saved_job.id,
-            status=saved_job.status.value,
+            status=saved_job.status,
             file_ref=request.file_ref,
             created_at=saved_job.created_at.isoformat()
         )
@@ -219,9 +228,6 @@ class SubmitJobUseCase:
         Channel(request.channel)
         FileReference(request.file_ref)
         RulesProfileId.from_string(request.rules_profile_id)
-        
-        if request.idempotency_key:
-            IdempotencyKey(request.idempotency_key)
 
 
 # Extended job class to match test expectations
@@ -235,7 +241,7 @@ class ExtendedJob:
     job_type: str
     file_ref: str
     rules_profile_id: str
-    status: JobStatus
+    status: str
     idempotency_key: Optional[str]
     created_at: datetime
     updated_at: datetime

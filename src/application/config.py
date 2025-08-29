@@ -47,3 +47,8 @@ class Config:
         
         if len(cls.JWT_SECRET_KEY) < 32:
             raise ValueError("JWT_SECRET_KEY must be at least 32 characters")
+
+    @classmethod
+    def get_idemp_compat_mode(cls) -> IdempotencyCompatMode:
+        """Return current idempotency compatibility mode (reads env at call time)."""
+        return IdempotencyCompatMode(os.getenv("IDEMP_COMPAT_MODE", cls.IDEMP_COMPAT_MODE.value))
