@@ -116,3 +116,13 @@ notes:
 - "Golden tests de CSV ficam na camada de regras (quando existir), não nos VOs."
 - "Não bloquear pipeline por telemetria complexa em RED; apenas checklist."
 ---
+
+📝 Recomendações do TDD-Engineer:
+
+O tdd-engineer identificou algumas melhorias para seguir melhor o ciclo RED-GREEN-REFACTOR:
+
+1. Fase RED mais pura: Em vez de try/except para imports faltantes, criar implementações mínimas que falham
+2. Menos parametrização: Testes individuais focados em vez de 42 parâmetros
+3. Verificação de comportamento: Focar em interações, não apenas estado
+4. Test doubles melhores: Criar stubs específicos em vez de mocks genéricos
+5. Golden tests para compliance: Garantir consistência de formato regulatório
