@@ -11,6 +11,10 @@ from uuid import uuid4
 
 from domain.errors import DomainError, InvalidStateTransitionError
 from domain.value_objects import JobId, TenantId
+from shared.logging.security import AuditLogger, AuditEventType
+
+# Module-level audit logger for job lifecycle events
+_AUDIT = AuditLogger("domain.job")
 
 
 class JobStatus(Enum):
@@ -53,12 +57,21 @@ class Job:
         Returns:
             New Job instance in SUBMITTED status
         """
-        return cls(
+        job = cls(
             id=JobId(uuid4()),
             tenant_id=tenant_id,
             status=JobStatus.SUBMITTED,
             created_at=datetime.now(timezone.utc)
         )
+        # Audit: job submitted
+        _AUDIT.job_lifecycle(
+            event_type=AuditEventType.JOB_SUBMITTED,
+            job_id=str(job.id.value),
+            status=job.status.value,
+            actor_id=None,
+            tenant_id=job.tenant_id.value,
+        )
+        return job
     
     def start(self) -> "Job":
         """
@@ -66,7 +79,6 @@ class Job:
         
         Valid transitions:
         - SUBMITTED -> RUNNING
-        - QUEUED -> RUNNING
         - RETRYING -> RUNNING
         
         Returns:
@@ -75,13 +87,22 @@ class Job:
         Raises:
             InvalidStateTransitionError: If transition is not allowed
         """
-        if self.status not in [JobStatus.SUBMITTED, JobStatus.QUEUED, JobStatus.RETRYING]:
+        if self.status not in [JobStatus.SUBMITTED, JobStatus.RETRYING]:
             raise InvalidStateTransitionError(
                 from_state=self.status.value,
                 to_state=JobStatus.RUNNING.value
             )
-        
-        return replace(self, status=JobStatus.RUNNING)
+        new_job = replace(self, status=JobStatus.RUNNING)
+        # Audit: job started
+        _AUDIT.job_lifecycle(
+            event_type=AuditEventType.JOB_STARTED,
+            job_id=str(new_job.id.value),
+            status=new_job.status.value,
+            actor_id=None,
+            tenant_id=new_job.tenant_id.value,
+            from_status=self.status.value,
+        )
+        return new_job
     
     def complete(self) -> "Job":
         """
@@ -102,7 +123,17 @@ class Job:
                 to_state=JobStatus.COMPLETED.value
             )
         
-        return replace(self, status=JobStatus.COMPLETED)
+        new_job = replace(self, status=JobStatus.COMPLETED)
+        # Audit: job completed
+        _AUDIT.job_lifecycle(
+            event_type=AuditEventType.JOB_COMPLETED,
+            job_id=str(new_job.id.value),
+            status=new_job.status.value,
+            actor_id=None,
+            tenant_id=new_job.tenant_id.value,
+            from_status=self.status.value,
+        )
+        return new_job
     
     def fail(self) -> "Job":
         """
@@ -123,7 +154,17 @@ class Job:
                 to_state=JobStatus.FAILED.value
             )
         
-        return replace(self, status=JobStatus.FAILED)
+        new_job = replace(self, status=JobStatus.FAILED)
+        # Audit: job failed
+        _AUDIT.job_lifecycle(
+            event_type=AuditEventType.JOB_FAILED,
+            job_id=str(new_job.id.value),
+            status=new_job.status.value,
+            actor_id=None,
+            tenant_id=new_job.tenant_id.value,
+            from_status=self.status.value,
+        )
+        return new_job
     
     def retry(self) -> "Job":
         """
@@ -144,7 +185,17 @@ class Job:
                 to_state=JobStatus.RETRYING.value
             )
         
-        return replace(self, status=JobStatus.RETRYING)
+        new_job = replace(self, status=JobStatus.RETRYING)
+        # Audit: job retried
+        _AUDIT.job_lifecycle(
+            event_type=AuditEventType.JOB_RETRIED,
+            job_id=str(new_job.id.value),
+            status=new_job.status.value,
+            actor_id=None,
+            tenant_id=new_job.tenant_id.value,
+            from_status=self.status.value,
+        )
+        return new_job
     
     def is_terminal(self) -> bool:
         """
