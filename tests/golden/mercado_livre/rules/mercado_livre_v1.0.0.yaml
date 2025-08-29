@@ -1,0 +1,385 @@
+schema_version: "1.0.0"
+marketplace: "mercado_livre"
+version: "1.0.0"
+
+metadata:
+  name: "Regras Mercado Livre v1.0"
+  description: "Regras de validação e transformação para produtos do Mercado Livre"
+  author: "ValidaHub Rules Team"
+  created_at: "2024-08-29T10:00:00Z"
+  tags: ["mercado_livre", "ecommerce", "validation"]
+
+# Mapeamento para Canonical CSV Model (CCM)
+ccm_mapping:
+  sku: 
+    source: "sku"
+    required: true
+  title: 
+    source: "titulo"
+    required: true
+    transform:
+      type: "custom"
+      expression: "normalize_title"
+  description: 
+    source: "descricao"
+    required: false
+    transform:
+      type: "trim"
+  brand: 
+    source: "marca"
+    required: false
+  gtin: 
+    source: "codigo_barras"
+    required: false
+  price_brl: 
+    source: "preco"
+    required: true
+  currency: 
+    source: "moeda"
+    default: "BRL"
+  stock: 
+    source: "disponibilidade"
+    required: false
+  weight_kg: 
+    source: "peso_gramas"
+    transform:
+      type: "custom"
+      expression: "gramas_to_kg"
+  length_cm: "comprimento_cm"
+  width_cm: "largura_cm"
+  height_cm: "altura_cm"
+  category_path: 
+    source: "categoria"
+    required: false
+  images: 
+    source: "imagens"
+    separator: ","
+    max_items: 10
+  attributes: 
+    source: "atributos"
+    transform:
+      type: "custom"
+      expression: "parse_json_safe"
+
+# Regras de validação e transformação
+rules:
+  # Regras de Validação (Assert)
+  - id: "sku_required"
+    type: "assert"
+    field: "sku"
+    scope: "row"
+    precedence: 100
+    condition:
+      operator: "not_empty"
+    action:
+      type: "assert"
+      stop_on_error: true
+    message: "SKU é obrigatório para todos os produtos"
+    severity: "error"
+    tags: ["required", "sku"]
+
+  - id: "sku_format"
+    type: "assert"
+    field: "sku"
+    scope: "row"
+    precedence: 110
+    condition:
+      operator: "matches"
+      value: "^ML[0-9]{3,6}$"
+    action:
+      type: "assert"
+    message: "SKU deve seguir formato ML + 3-6 dígitos (ex: ML001)"
+    severity: "error"
+    tags: ["format", "sku"]
+
+  - id: "title_required"
+    type: "assert"
+    field: "title"
+    scope: "row"
+    precedence: 200
+    condition:
+      operator: "not_empty"
+    action:
+      type: "assert"
+      stop_on_error: true
+    message: "Título é obrigatório"
+    severity: "error"
+    tags: ["required", "title"]
+
+  - id: "title_length"
+    type: "assert"
+    field: "title"
+    scope: "row"
+    precedence: 210
+    condition:
+      and:
+        - operator: "length_gt"
+          value: 10
+        - operator: "length_lt"
+          value: 200
+    action:
+      type: "assert"
+    message: "Título deve ter entre 10 e 200 caracteres"
+    severity: "error"
+    tags: ["length", "title"]
+
+  - id: "price_required"
+    type: "assert"
+    field: "price_brl"
+    scope: "row"
+    precedence: 300
+    condition:
+      operator: "not_empty"
+    action:
+      type: "assert"
+      stop_on_error: true
+    message: "Preço é obrigatório"
+    severity: "error"
+    tags: ["required", "price"]
+
+  - id: "price_positive"
+    type: "assert"
+    field: "price_brl"
+    scope: "row"
+    precedence: 310
+    condition:
+      operator: "gt"
+      value: 0
+    action:
+      type: "assert"
+    message: "Preço deve ser maior que zero"
+    severity: "error"
+    tags: ["validation", "price"]
+
+  - id: "price_reasonable"
+    type: "assert"
+    field: "price_brl"
+    scope: "row"
+    precedence: 320
+    condition:
+      and:
+        - operator: "gt"
+          value: 0.01
+        - operator: "lt"
+          value: 999999.99
+    action:
+      type: "assert"
+    message: "Preço deve estar entre R$ 0,01 e R$ 999.999,99"
+    severity: "warning"
+    tags: ["validation", "price"]
+
+  - id: "gtin_format"
+    type: "assert"
+    field: "gtin"
+    scope: "row"
+    precedence: 400
+    condition:
+      and:
+        - operator: "not_empty"
+        - operator: "matches"
+          value: "^\\d{8}|\\d{12}|\\d{13}|\\d{14}$"
+    action:
+      type: "assert"
+    message: "GTIN deve ter 8, 12, 13 ou 14 dígitos"
+    severity: "warning"
+    tags: ["format", "gtin"]
+
+  - id: "brand_electronics"
+    type: "assert"
+    field: "brand"
+    scope: "row"
+    precedence: 500
+    condition:
+      and:
+        - operator: "contains"
+          value: "Celulares"
+          field: "category_path"
+        - operator: "not_empty"
+    action:
+      type: "assert"
+    message: "Marca é obrigatória para produtos eletrônicos"
+    severity: "error"
+    tags: ["conditional", "brand"]
+
+  - id: "images_urls"
+    type: "assert"
+    field: "images"
+    scope: "row"
+    precedence: 600
+    condition:
+      operator: "not_empty"
+    action:
+      type: "assert"
+    message: "Pelo menos uma imagem é recomendada"
+    severity: "warning"
+    tags: ["images", "recommendation"]
+
+  # Regras de Transformação
+  - id: "title_normalize"
+    type: "transform"
+    field: "title"
+    scope: "row"
+    precedence: 700
+    condition:
+      operator: "not_empty"
+    action:
+      type: "transform"
+      operation: "custom"
+      expression: "title_case_normalize"
+    message: "Título normalizado para formato padrão"
+    severity: "info"
+    tags: ["transform", "title"]
+
+  - id: "title_trim"
+    type: "transform"
+    field: "title"
+    scope: "row"
+    precedence: 710
+    condition:
+      operator: "not_empty"
+    action:
+      type: "transform"
+      operation: "trim"
+    message: "Espaços extras removidos do título"
+    severity: "info"
+    tags: ["transform", "title"]
+
+  - id: "description_cleanup"
+    type: "transform"
+    field: "description"
+    scope: "row"
+    precedence: 800
+    condition:
+      operator: "not_empty"
+    action:
+      type: "transform"
+      operation: "custom"
+      expression: "clean_description"
+    message: "Descrição limpa e formatada"
+    severity: "info"
+    tags: ["transform", "description"]
+
+  - id: "weight_convert"
+    type: "transform"
+    field: "weight_kg"
+    scope: "row"
+    precedence: 900
+    condition:
+      operator: "not_empty"
+    action:
+      type: "transform"
+      operation: "custom"
+      expression: "gramas_to_kg"
+      params:
+        source_unit: "gramas"
+        target_unit: "kg"
+    message: "Peso convertido de gramas para quilogramas"
+    severity: "info"
+    tags: ["transform", "weight"]
+
+  - id: "currency_default"
+    type: "transform"
+    field: "currency"
+    scope: "row"
+    precedence: 950
+    condition:
+      operator: "empty"
+    action:
+      type: "transform"
+      operation: "set"
+      value: "BRL"
+    message: "Moeda padrão definida como BRL"
+    severity: "info"
+    tags: ["transform", "currency"]
+
+  # Regras de Sugestão
+  - id: "category_suggest"
+    type: "suggest"
+    field: "category_path"
+    scope: "row"
+    precedence: 1000
+    condition:
+      or:
+        - operator: "empty"
+        - operator: "eq"
+          value: "Teste"
+    action:
+      type: "suggest"
+      suggestions:
+        - "Eletrônicos > Celulares e Smartphones"
+        - "Casa e Eletrodomésticos"
+        - "Roupas e Calçados"
+        - "Computação"
+        - "Games"
+      confidence: 0.7
+    message: "Sugeridas categorias baseadas no conteúdo"
+    severity: "info"
+    tags: ["suggest", "category"]
+
+  - id: "brand_suggest"
+    type: "suggest"
+    field: "brand"
+    scope: "row"
+    precedence: 1100
+    condition:
+      and:
+        - operator: "empty"
+        - operator: "contains"
+          value: "samsung"
+          field: "title"
+          case_sensitive: false
+    action:
+      type: "suggest"
+      suggestions:
+        - "Samsung"
+      confidence: 0.9
+    message: "Marca sugerida baseada no título"
+    severity: "info"
+    tags: ["suggest", "brand"]
+
+  - id: "gtin_recommend"
+    type: "suggest"
+    field: "gtin"
+    scope: "row"
+    precedence: 1200
+    condition:
+      and:
+        - operator: "empty"
+        - operator: "contains"
+          value: "Eletrônicos"
+          field: "category_path"
+    action:
+      type: "suggest"
+      suggestions: []
+      confidence: 0.5
+    message: "GTIN recomendado para produtos eletrônicos"
+    severity: "info"
+    tags: ["suggest", "gtin"]
+
+  # Regras Globais
+  - id: "duplicate_sku_check"
+    type: "assert"
+    field: "sku"
+    scope: "global"
+    precedence: 50
+    condition:
+      operator: "unique_values"
+    action:
+      type: "assert"
+    message: "SKUs duplicados encontrados no dataset"
+    severity: "error"
+    tags: ["global", "duplicate"]
+
+  - id: "dataset_size_check"
+    type: "assert"
+    field: "_dataset"
+    scope: "global"
+    precedence: 10
+    condition:
+      operator: "row_count_gt"
+      value: 0
+    action:
+      type: "assert"
+    message: "Dataset deve conter pelo menos 1 produto"
+    severity: "error"
+    tags: ["global", "dataset"]

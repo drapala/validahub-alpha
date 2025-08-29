@@ -1,0 +1,526 @@
+schema_version: "1.0.0"
+marketplace: "amazon"
+version: "1.0.0"
+
+metadata:
+  name: "Regras Amazon v1.0"
+  description: "Regras de validação e transformação para produtos da Amazon"
+  author: "ValidaHub Rules Team"
+  created_at: "2024-08-29T11:00:00Z"
+  tags: ["amazon", "ecommerce", "validation"]
+
+# Mapeamento para Canonical CSV Model (CCM)
+ccm_mapping:
+  sku: 
+    source: "asin"
+    required: true
+  title: 
+    source: "product_title"
+    required: true
+    transform:
+      type: "custom"
+      expression: "normalize_amazon_title"
+  description: 
+    source: "product_description"
+    required: false
+    transform:
+      type: "custom"
+      expression: "merge_description_bullets"
+  brand: 
+    source: "brand_name"
+    required: false
+  gtin: 
+    source: "upc_ean"
+    required: false
+  price_brl: 
+    source: "list_price"
+    required: true
+    transform:
+      type: "custom"
+      expression: "usd_to_brl"
+  currency: 
+    source: "currency_code"
+    default: "BRL"
+    transform:
+      type: "custom"
+      expression: "normalize_currency"
+  stock: 
+    source: "quantity"
+    required: false
+  weight_kg: 
+    source: "item_weight"
+    transform:
+      type: "custom"
+      expression: "grams_to_kg"
+  length_cm: "item_length"
+  width_cm: "item_width"
+  height_cm: "item_height"
+  category_path: 
+    source: "browse_node"
+    required: false
+    transform:
+      type: "custom"
+      expression: "normalize_browse_node"
+  images: 
+    source: "main_image_url"
+    transform:
+      type: "custom"
+      expression: "single_image_to_array"
+  attributes: 
+    source: "bullet_points"
+    transform:
+      type: "custom"
+      expression: "bullets_to_attributes"
+
+# Regras de validação e transformação
+rules:
+  # Regras de Validação (Assert)
+  - id: "asin_required"
+    type: "assert"
+    field: "sku"
+    scope: "row"
+    precedence: 100
+    condition:
+      operator: "not_empty"
+    action:
+      type: "assert"
+      stop_on_error: true
+    message: "ASIN é obrigatório para todos os produtos"
+    severity: "error"
+    tags: ["required", "asin"]
+
+  - id: "asin_format"
+    type: "assert"
+    field: "sku"
+    scope: "row"
+    precedence: 110
+    condition:
+      operator: "matches"
+      value: "^B[0-9A-Z]{9}$"
+    action:
+      type: "assert"
+    message: "ASIN deve seguir formato B + 9 caracteres alfanuméricos (ex: B08N5WRWNW)"
+    severity: "error"
+    tags: ["format", "asin"]
+
+  - id: "title_required"
+    type: "assert"
+    field: "title"
+    scope: "row"
+    precedence: 200
+    condition:
+      operator: "not_empty"
+    action:
+      type: "assert"
+      stop_on_error: true
+    message: "Título do produto é obrigatório"
+    severity: "error"
+    tags: ["required", "title"]
+
+  - id: "title_length"
+    type: "assert"
+    field: "title"
+    scope: "row"
+    precedence: 210
+    condition:
+      and:
+        - operator: "length_gt"
+          value: 15
+        - operator: "length_lt"
+          value: 500
+    action:
+      type: "assert"
+    message: "Título deve ter entre 15 e 500 caracteres"
+    severity: "warning"
+    tags: ["length", "title"]
+
+  - id: "price_required"
+    type: "assert"
+    field: "price_brl"
+    scope: "row"
+    precedence: 300
+    condition:
+      operator: "not_empty"
+    action:
+      type: "assert"
+      stop_on_error: true
+    message: "Preço é obrigatório"
+    severity: "error"
+    tags: ["required", "price"]
+
+  - id: "price_positive"
+    type: "assert"
+    field: "price_brl"
+    scope: "row"
+    precedence: 310
+    condition:
+      operator: "gt"
+      value: 0
+    action:
+      type: "assert"
+    message: "Preço deve ser maior que zero"
+    severity: "error"
+    tags: ["validation", "price"]
+
+  - id: "upc_ean_format"
+    type: "assert"
+    field: "gtin"
+    scope: "row"
+    precedence: 400
+    condition:
+      and:
+        - operator: "not_empty"
+        - or:
+          - operator: "matches"
+            value: "^\\d{12}$"  # UPC
+          - operator: "matches"
+            value: "^\\d{13}$"  # EAN
+    action:
+      type: "assert"
+    message: "UPC deve ter 12 dígitos ou EAN deve ter 13 dígitos"
+    severity: "warning"
+    tags: ["format", "upc", "ean"]
+
+  - id: "brand_required_electronics"
+    type: "assert"
+    field: "brand"
+    scope: "row"
+    precedence: 500
+    condition:
+      and:
+        - operator: "contains"
+          value: "Electronics"
+          field: "category_path"
+        - operator: "not_empty"
+    action:
+      type: "assert"
+    message: "Marca é obrigatória para produtos eletrônicos"
+    severity: "error"
+    tags: ["conditional", "brand", "electronics"]
+
+  - id: "main_image_required"
+    type: "assert"
+    field: "images"
+    scope: "row"
+    precedence: 600
+    condition:
+      operator: "not_empty"
+    action:
+      type: "assert"
+    message: "Imagem principal é obrigatória para listagem na Amazon"
+    severity: "error"
+    tags: ["images", "required"]
+
+  - id: "main_image_url_format"
+    type: "assert"
+    field: "images"
+    scope: "row"
+    precedence: 610
+    condition:
+      and:
+        - operator: "not_empty"
+        - operator: "matches"
+          value: "^https://.*\\.(jpg|jpeg|png|gif)$"
+          case_sensitive: false
+    action:
+      type: "assert"
+    message: "URL da imagem deve ser HTTPS e formato válido (jpg, jpeg, png, gif)"
+    severity: "warning"
+    tags: ["images", "format"]
+
+  - id: "weight_reasonable"
+    type: "assert"
+    field: "weight_kg"
+    scope: "row"
+    precedence: 700
+    condition:
+      and:
+        - operator: "not_empty"
+        - operator: "gt"
+          value: 0.001
+        - operator: "lt"
+          value: 1000
+    action:
+      type: "assert"
+    message: "Peso deve estar entre 1g e 1000kg"
+    severity: "warning"
+    tags: ["validation", "weight"]
+
+  # Regras de Transformação
+  - id: "title_normalize"
+    type: "transform"
+    field: "title"
+    scope: "row"
+    precedence: 800
+    condition:
+      operator: "not_empty"
+    action:
+      type: "transform"
+      operation: "custom"
+      expression: "normalize_amazon_title"
+    message: "Título normalizado removendo elementos promocionais"
+    severity: "info"
+    tags: ["transform", "title"]
+
+  - id: "title_trim_spaces"
+    type: "transform"
+    field: "title"
+    scope: "row"
+    precedence: 810
+    condition:
+      operator: "not_empty"
+    action:
+      type: "transform"
+      operation: "trim"
+    message: "Espaços extras removidos do título"
+    severity: "info"
+    tags: ["transform", "title"]
+
+  - id: "description_merge_bullets"
+    type: "transform"
+    field: "description"
+    scope: "row"
+    precedence: 820
+    condition:
+      operator: "not_empty"
+    action:
+      type: "transform"
+      operation: "custom"
+      expression: "merge_description_bullets"
+      params:
+        bullet_separator: "|"
+        include_bullets: true
+    message: "Descrição enriquecida com bullet points"
+    severity: "info"
+    tags: ["transform", "description"]
+
+  - id: "price_usd_to_brl"
+    type: "transform"
+    field: "price_brl"
+    scope: "row"
+    precedence: 900
+    condition:
+      and:
+        - operator: "not_empty"
+        - operator: "eq"
+          value: "USD"
+          field: "currency"
+    action:
+      type: "transform"
+      operation: "custom"
+      expression: "usd_to_brl"
+      params:
+        exchange_rate: 5.2  # Taxa aproximada
+        round_decimals: 2
+    message: "Preço convertido de USD para BRL"
+    severity: "info"
+    tags: ["transform", "price", "currency"]
+
+  - id: "weight_grams_to_kg"
+    type: "transform"
+    field: "weight_kg"
+    scope: "row"
+    precedence: 950
+    condition:
+      and:
+        - operator: "not_empty"
+        - operator: "gt"
+          value: 1  # Assumir que valores > 1 estão em gramas
+    action:
+      type: "transform"
+      operation: "custom"
+      expression: "grams_to_kg"
+    message: "Peso convertido de gramas para quilogramas"
+    severity: "info"
+    tags: ["transform", "weight"]
+
+  - id: "category_normalize"
+    type: "transform"
+    field: "category_path"
+    scope: "row"
+    precedence: 980
+    condition:
+      operator: "not_empty"
+    action:
+      type: "transform"
+      operation: "custom"
+      expression: "normalize_browse_node"
+    message: "Categoria normalizada para formato padrão"
+    severity: "info"
+    tags: ["transform", "category"]
+
+  - id: "currency_normalize"
+    type: "transform"
+    field: "currency"
+    scope: "row"
+    precedence: 990
+    condition:
+      operator: "eq"
+      value: "USD"
+    action:
+      type: "transform"
+      operation: "set"
+      value: "BRL"
+    message: "Moeda normalizada para BRL após conversão"
+    severity: "info"
+    tags: ["transform", "currency"]
+
+  # Regras de Sugestão
+  - id: "brand_suggest_from_title"
+    type: "suggest"
+    field: "brand"
+    scope: "row"
+    precedence: 1000
+    condition:
+      and:
+        - operator: "empty"
+        - or:
+          - operator: "contains"
+            value: "apple"
+            field: "title"
+            case_sensitive: false
+          - operator: "contains"
+            value: "iphone"
+            field: "title"
+            case_sensitive: false
+          - operator: "contains"
+            value: "ipad"
+            field: "title"
+            case_sensitive: false
+    action:
+      type: "suggest"
+      suggestions:
+        - "Apple"
+      confidence: 0.9
+    message: "Marca Apple sugerida baseada no título"
+    severity: "info"
+    tags: ["suggest", "brand"]
+
+  - id: "brand_suggest_samsung"
+    type: "suggest"
+    field: "brand"
+    scope: "row"
+    precedence: 1010
+    condition:
+      and:
+        - operator: "empty"
+        - operator: "contains"
+          value: "samsung"
+          field: "title"
+          case_sensitive: false
+    action:
+      type: "suggest"
+      suggestions:
+        - "Samsung"
+      confidence: 0.85
+    message: "Marca Samsung sugerida baseada no título"
+    severity: "info"
+    tags: ["suggest", "brand"]
+
+  - id: "category_suggest_electronics"
+    type: "suggest"
+    field: "category_path"
+    scope: "row"
+    precedence: 1100
+    condition:
+      and:
+        - operator: "empty"
+        - or:
+          - operator: "contains"
+            value: "smartphone"
+            field: "title"
+            case_sensitive: false
+          - operator: "contains"
+            value: "tablet"
+            field: "title"
+            case_sensitive: false
+          - operator: "contains"
+            value: "headphone"
+            field: "title"
+            case_sensitive: false
+    action:
+      type: "suggest"
+      suggestions:
+        - "Electronics > Computers & Tablets"
+        - "Electronics > Audio"
+        - "Electronics > Cell Phones & Accessories"
+      confidence: 0.7
+    message: "Categoria eletrônicos sugerida baseada no produto"
+    severity: "info"
+    tags: ["suggest", "category"]
+
+  - id: "upc_recommend_branded"
+    type: "suggest"
+    field: "gtin"
+    scope: "row"
+    precedence: 1200
+    condition:
+      and:
+        - operator: "empty"
+        - operator: "not_empty"
+          field: "brand"
+        - operator: "in"
+          value: ["Apple", "Samsung", "Sony", "Nintendo"]
+          field: "brand"
+    action:
+      type: "suggest"
+      suggestions: []
+      confidence: 0.8
+    message: "UPC/EAN altamente recomendado para marcas conhecidas"
+    severity: "info"
+    tags: ["suggest", "upc", "brand"]
+
+  # Regras Globais
+  - id: "duplicate_asin_check"
+    type: "assert"
+    field: "sku"
+    scope: "global"
+    precedence: 50
+    condition:
+      operator: "unique_values"
+    action:
+      type: "assert"
+    message: "ASINs duplicados encontrados no dataset"
+    severity: "error"
+    tags: ["global", "duplicate"]
+
+  - id: "brand_consistency_check"
+    type: "assert"
+    field: "brand"
+    scope: "global"
+    precedence: 60
+    condition:
+      operator: "consistent_casing"
+    action:
+      type: "assert"
+    message: "Inconsistência na capitalização de marcas detectada"
+    severity: "warning"
+    tags: ["global", "brand", "consistency"]
+
+  - id: "price_outlier_detection"
+    type: "assert"
+    field: "price_brl"
+    scope: "global"
+    precedence: 70
+    condition:
+      operator: "within_iqr_range"
+      value: 3.0  # 3 IQRs
+    action:
+      type: "assert"
+    message: "Possíveis outliers de preço detectados"
+    severity: "warning"
+    tags: ["global", "price", "outlier"]
+
+  - id: "dataset_size_check"
+    type: "assert"
+    field: "_dataset"
+    scope: "global"
+    precedence: 10
+    condition:
+      operator: "row_count_gt"
+      value: 0
+    action:
+      type: "assert"
+    message: "Dataset deve conter pelo menos 1 produto"
+    severity: "error"
+    tags: ["global", "dataset"]

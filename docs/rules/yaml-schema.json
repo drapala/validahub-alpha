@@ -1,0 +1,441 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://validahub.com/schemas/rules/v1.0.0",
+  "title": "ValidaHub Rules YAML Schema",
+  "description": "Schema for ValidaHub marketplace rule definitions",
+  "type": "object",
+  "required": ["schema_version", "marketplace", "version", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0.0"],
+      "description": "Schema version for compatibility checks"
+    },
+    "marketplace": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{2,31}$",
+      "description": "Marketplace identifier (mercado_livre, amazon, etc.)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (major.minor.patch)"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "author": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "maxItems": 10
+        }
+      },
+      "additionalProperties": false
+    },
+    "ccm_mapping": {
+      "type": "object",
+      "description": "Field mappings to Canonical CSV Model",
+      "properties": {
+        "sku": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "title": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "description": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "brand": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "gtin": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "ncm": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "price_brl": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "currency": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "stock": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "weight_kg": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "length_cm": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "width_cm": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "height_cm": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "category_path": {
+          "$ref": "#/definitions/field_mapping"
+        },
+        "images": {
+          "$ref": "#/definitions/array_field_mapping"
+        },
+        "attributes": {
+          "$ref": "#/definitions/object_field_mapping"
+        }
+      },
+      "additionalProperties": {
+        "$ref": "#/definitions/field_mapping"
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/rule"
+      }
+    }
+  },
+  "definitions": {
+    "field_mapping": {
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "Direct field mapping"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "source": {
+              "type": "string",
+              "description": "Source field name"
+            },
+            "transform": {
+              "$ref": "#/definitions/transform"
+            },
+            "default": {
+              "description": "Default value if source is empty"
+            },
+            "required": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "required": ["source"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "array_field_mapping": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "separator": {
+          "type": "string",
+          "default": ","
+        },
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "max_items": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false
+    },
+    "object_field_mapping": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            }
+          ]
+        },
+        "transform": {
+          "$ref": "#/definitions/transform"
+        },
+        "flatten": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false
+    },
+    "transform": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["upper", "lower", "trim", "normalize", "number", "currency", "date", "custom"]
+        },
+        "expression": {
+          "type": "string",
+          "description": "Custom transform expression for type=custom"
+        },
+        "params": {
+          "type": "object",
+          "description": "Additional parameters for transform"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "rule": {
+      "type": "object",
+      "required": ["id", "type", "field", "action"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,63}$",
+          "description": "Unique rule identifier"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["assert", "transform", "suggest"],
+          "description": "Rule action type"
+        },
+        "field": {
+          "type": "string",
+          "description": "Target CCM field name"
+        },
+        "scope": {
+          "type": "string",
+          "enum": ["row", "column", "global"],
+          "default": "row",
+          "description": "Scope of rule application"
+        },
+        "precedence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 500,
+          "description": "Rule execution priority (0=highest, 1000=lowest)"
+        },
+        "condition": {
+          "$ref": "#/definitions/condition"
+        },
+        "action": {
+          "$ref": "#/definitions/action"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Human-readable error/warning message"
+        },
+        "severity": {
+          "type": "string",
+          "enum": ["error", "warning", "info"],
+          "default": "error",
+          "description": "Issue severity level"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "maxItems": 5
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/simple_condition"
+        },
+        {
+          "$ref": "#/definitions/logical_condition"
+        }
+      ]
+    },
+    "simple_condition": {
+      "type": "object",
+      "properties": {
+        "operator": {
+          "type": "string",
+          "enum": [
+            "eq", "ne", "gt", "gte", "lt", "lte",
+            "contains", "startswith", "endswith", "matches",
+            "in", "not_in", "empty", "not_empty",
+            "length_eq", "length_gt", "length_lt",
+            "is_number", "is_email", "is_url", "is_date"
+          ]
+        },
+        "value": {
+          "description": "Comparison value (optional for unary operators)"
+        },
+        "case_sensitive": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "required": ["operator"],
+      "additionalProperties": false
+    },
+    "logical_condition": {
+      "type": "object",
+      "properties": {
+        "and": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/condition"
+          },
+          "minItems": 2
+        },
+        "or": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/condition"
+          },
+          "minItems": 2
+        },
+        "not": {
+          "$ref": "#/definitions/condition"
+        }
+      },
+      "oneOf": [
+        {"required": ["and"]},
+        {"required": ["or"]},
+        {"required": ["not"]}
+      ],
+      "additionalProperties": false
+    },
+    "action": {
+      "type": "object",
+      "discriminator": {
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/assert_action"
+        },
+        {
+          "$ref": "#/definitions/transform_action"
+        },
+        {
+          "$ref": "#/definitions/suggest_action"
+        }
+      ]
+    },
+    "assert_action": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["assert"]
+        },
+        "stop_on_error": {
+          "type": "boolean",
+          "default": false,
+          "description": "Stop processing row on assertion failure"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "transform_action": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["transform"]
+        },
+        "operation": {
+          "type": "string",
+          "enum": [
+            "set", "replace", "append", "prepend",
+            "upper", "lower", "trim", "normalize",
+            "format_currency", "format_date", "extract_number",
+            "custom"
+          ]
+        },
+        "value": {
+          "description": "Target value or template"
+        },
+        "expression": {
+          "type": "string",
+          "description": "Custom transformation expression"
+        },
+        "params": {
+          "type": "object",
+          "description": "Operation-specific parameters"
+        }
+      },
+      "required": ["type", "operation"],
+      "additionalProperties": false
+    },
+    "suggest_action": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["suggest"]
+        },
+        "suggestions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Confidence score for suggestions"
+        }
+      },
+      "required": ["type", "suggestions"],
+      "additionalProperties": false
+    }
+  }
+}
