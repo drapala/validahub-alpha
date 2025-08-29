@@ -36,7 +36,13 @@
         "ops",
         "security",
         "compliance",
-        "project"
+        "project",
+        "tests",
+        "docs",
+        "ci",
+        "logging",
+        "app",
+        "tech-debt"
       ]
     ],
     "subject-case": [2, "never", ["upper-case", "pascal-case", "start-case"]],
