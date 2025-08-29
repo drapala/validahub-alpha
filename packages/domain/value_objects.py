@@ -6,6 +6,9 @@ import re
 import unicodedata
 from urllib.parse import urlparse
 
+from packages.shared.logging import get_logger
+from packages.shared.logging.security import SecurityLogger
+
 
 def _has_control_or_format(s: str) -> bool:
     """Check if string contains control or format characters (includes zero-width)."""
@@ -18,7 +21,15 @@ class TenantId:
     value: str
     
     def __post_init__(self) -> None:
+        logger = get_logger("domain.tenant_id")
+        security_logger = SecurityLogger("domain.tenant_id")
+        
         if not isinstance(self.value, str):
+            logger.warning(
+                "tenant_id_validation_failed",
+                error_type="invalid_type",
+                value_type=type(self.value).__name__,
+            )
             raise ValueError("Invalid tenant id format")
         
         # Normalize
@@ -26,14 +37,28 @@ class TenantId:
         
         # Unicode validation
         if _has_control_or_format(normalized):
+            security_logger.injection_attempt(
+                injection_type="unicode_control",
+                field_name="tenant_id",
+            )
             raise ValueError("Invalid tenant id format")
         
         # Length validation
         if not normalized or len(normalized) < 3 or len(normalized) > 50:
+            logger.warning(
+                "tenant_id_validation_failed",
+                error_type="invalid_length",
+                length=len(normalized) if normalized else 0,
+            )
             raise ValueError("Invalid tenant id format")
         
         # Set normalized value
         object.__setattr__(self, 'value', normalized)
+        
+        logger.debug(
+            "tenant_id_created",
+            tenant_id=normalized,
+        )
     
     def __str__(self) -> str:
         return self.value
@@ -49,16 +74,39 @@ class IdempotencyKey:
     _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9\-_]{8,128}$")
     
     def __post_init__(self) -> None:
+        logger = get_logger("domain.idempotency_key")
+        security_logger = SecurityLogger("domain.idempotency_key")
+        
         if not isinstance(self.value, str):
+            logger.warning(
+                "idempotency_key_validation_failed",
+                error_type="invalid_type",
+                value_type=type(self.value).__name__,
+            )
             raise ValueError("Invalid idempotency key format")
         
         # CSV Injection: block formulas in exports
         if self.value and self.value[0] in ('=', '+', '-', '@'):
+            security_logger.injection_attempt(
+                injection_type="csv_formula",
+                field_name="idempotency_key",
+                first_char=self.value[0],
+            )
             raise ValueError("Invalid idempotency key format")
         
         # Pattern validation
         if not self._pattern.match(self.value):
+            logger.warning(
+                "idempotency_key_validation_failed",
+                error_type="pattern_mismatch",
+                key_length=len(self.value),
+            )
             raise ValueError("Invalid idempotency key format")
+        
+        logger.debug(
+            "idempotency_key_created",
+            idempotency_key=self.value,
+        )
     
     def __str__(self) -> str:
         return self.value
@@ -77,7 +125,15 @@ class FileReference:
     value: str
     
     def __post_init__(self) -> None:
+        logger = get_logger("domain.file_reference")
+        security_logger = SecurityLogger("domain.file_reference")
+        
         if not isinstance(self.value, str):
+            logger.warning(
+                "file_reference_validation_failed",
+                error_type="invalid_type",
+                value_type=type(self.value).__name__,
+            )
             raise ValueError("Invalid file reference")
         
         v = self.value or ""
@@ -85,13 +141,30 @@ class FileReference:
         # Path traversal protection: normalize backslash and check
         v_norm = v.replace("\\", "/")
         if "../" in v_norm:
+            security_logger.injection_attempt(
+                injection_type="path_traversal",
+                field_name="file_reference",
+            )
             raise ValueError("Invalid file reference")
         
         # Block dangerous extensions
         low = v.lower()
         for bad_ext in _DENY_EXT:
             if low.endswith(bad_ext):
+                security_logger.log_security_event(
+                    security_logger.SecurityEventType.DANGEROUS_FILE,
+                    "Dangerous file extension blocked",
+                    severity="ERROR",
+                    extension=bad_ext,
+                    file_ref=self.value,
+                )
                 raise ValueError("Invalid file reference")
+        
+        logger.debug(
+            "file_reference_created",
+            file_ref=self.value,
+            scheme=self.get_scheme(),
+        )
     
     def get_scheme(self) -> str | None:
         """Extract URL scheme (e.g., 's3', 'https')."""
@@ -189,17 +262,49 @@ class ProcessingCounters:
     warnings: int
     
     def __post_init__(self) -> None:
+        logger = get_logger("domain.processing_counters")
+        
         # All values must be non-negative
         if any(v < 0 for v in [self.total, self.processed, self.errors, self.warnings]):
+            logger.warning(
+                "processing_counters_validation_failed",
+                error_type="negative_values",
+                total=self.total,
+                processed=self.processed,
+                errors=self.errors,
+                warnings=self.warnings,
+            )
             raise ValueError("Invalid processing counters")
         
         # Processed cannot exceed total
         if self.processed > self.total:
+            logger.warning(
+                "processing_counters_validation_failed",
+                error_type="processed_exceeds_total",
+                total=self.total,
+                processed=self.processed,
+            )
             raise ValueError("Invalid processing counters")
         
         # Errors + warnings cannot exceed processed
         if self.errors + self.warnings > self.processed:
+            logger.warning(
+                "processing_counters_validation_failed",
+                error_type="issues_exceed_processed",
+                processed=self.processed,
+                errors=self.errors,
+                warnings=self.warnings,
+            )
             raise ValueError("Invalid processing counters")
+        
+        logger.debug(
+            "processing_counters_created",
+            total=self.total,
+            processed=self.processed,
+            errors=self.errors,
+            warnings=self.warnings,
+            success_rate=self.get_success_rate(),
+        )
     
     def get_success_count(self) -> int:
         """Calculate number of successful items."""
