@@ -178,19 +178,6 @@ class Job:
         )
         job._events.append(event)
         
-        # Audit logging
-            tenant_id=str(tenant_id),
-            seller_id=seller_id,
-            status=JobStatus.QUEUED.value,
-            actor_id=actor_id,
-            trace_id=trace_id,
-        )
-        
-            seller_id=seller_id,
-            channel=str(channel),
-            type=job_type.value,
-            rules_profile_id=str(rules_profile_id),
-        )
         
         return job
     
@@ -249,17 +236,6 @@ class Job:
         )
         new_job._events.append(event)
         
-        # Audit logging
-            tenant_id=str(self.tenant_id),
-            status=JobStatus.RUNNING.value,
-            from_status=self.status.value,
-            actor_id=actor_id,
-            trace_id=trace_id,
-        )
-        
-            from_status=self.status.value,
-            to_status=JobStatus.RUNNING.value,
-        )
         
         return new_job
     
@@ -334,19 +310,6 @@ class Job:
         )
         new_job._events.append(event)
         
-        # Audit logging
-            tenant_id=str(self.tenant_id),
-            status=JobStatus.SUCCEEDED.value,
-            from_status=self.status.value,
-            duration_ms=duration_ms,
-            counters=counters.__dict__,
-            actor_id=actor_id,
-            trace_id=trace_id,
-        )
-        
-            duration_ms=duration_ms,
-            counters=counters.__dict__,
-        )
         
         return new_job
     
@@ -427,25 +390,6 @@ class Job:
         )
         new_job._events.append(event)
         
-        # Audit logging
-            tenant_id=str(self.tenant_id),
-            status=JobStatus.FAILED.value,
-            from_status=self.status.value,
-            error_code=error_code,
-            retry_count=retry_count,
-            duration_ms=duration_ms,
-            actor_id=actor_id,
-            trace_id=trace_id,
-        )
-        
-        logger.error(
-            "job_failed",
-            job_id=str(self.id),
-            tenant_id=str(self.tenant_id),
-            error_code=error_code,
-            error_message=error_message,
-            duration_ms=duration_ms,
-        )
         
         return new_job
     
@@ -512,17 +456,6 @@ class Job:
         )
         new_job._events.append(event)
         
-        # Audit logging
-            tenant_id=str(self.tenant_id),
-            status=JobStatus.CANCELLED.value,
-            from_status=self.status.value,
-            reason=reason,
-            actor_id=actor_id,
-            trace_id=trace_id,
-        )
-        
-            reason=reason,
-        )
         
         return new_job
     
@@ -586,15 +519,6 @@ class Job:
         )
         retry_job._events.append(event)
         
-        # Audit logging
-            tenant_id=str(self.tenant_id),
-            original_job_id=str(self.id),
-            actor_id=actor_id,
-            trace_id=trace_id,
-        )
-        
-            tenant_id=str(self.tenant_id),
-        )
         
         return retry_job
     
@@ -659,21 +583,6 @@ class Job:
         )
         new_job._events.append(event)
         
-        # Audit logging
-            tenant_id=str(self.tenant_id),
-            status=JobStatus.EXPIRED.value,
-            from_status=self.status.value,
-            ttl_seconds=ttl_seconds,
-            actor_id=actor_id,
-            trace_id=trace_id,
-        )
-        
-        logger.warning(
-            "job_expired",
-            job_id=str(self.id),
-            tenant_id=str(self.tenant_id),
-            ttl_seconds=ttl_seconds,
-        )
         
         return new_job
     
