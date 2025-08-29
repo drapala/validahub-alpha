@@ -87,9 +87,16 @@ class TenantId:
 
 @dataclass(frozen=True)
 class IdempotencyKey:
-    """Idempotency key with CSV injection protection."""
+    """Idempotency key with CSV injection protection and strict validation.
+    
+    Security requirements:
+    - Length: 16-128 characters
+    - Allowed characters: A-Z, a-z, 0-9, hyphen (-), underscore (_)
+    - CSV formula injection protection: blocks '=', '+', '-', '@' as first character
+    - Neutral error messages that don't expose input values
+    """
     value: str
-    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9\-_.]{8,128}$")
+    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9\-_]{16,128}$")
     
     def __post_init__(self) -> None:
         logger = get_logger("domain.idempotency_key")
@@ -103,27 +110,31 @@ class IdempotencyKey:
             )
             raise ValueError("Invalid idempotency key format")
         
-        # CSV Injection: block formulas in exports
+        # CSV Injection Protection: block formula characters at start
+        # This prevents CSV formula injection when keys are exported
         if self.value and self.value[0] in ('=', '+', '-', '@'):
             security_logger.injection_attempt(
                 injection_type="csv_formula",
                 field_name="idempotency_key",
+                # Note: We log the first character for security monitoring but never in error messages
                 first_char=self.value[0],
             )
             raise ValueError("Invalid idempotency key format")
         
-        # Pattern validation
+        # Pattern and length validation (16-128 chars, alphanumeric + hyphen + underscore only)
         if not self._pattern.match(self.value):
             logger.warning(
                 "idempotency_key_validation_failed",
                 error_type="pattern_mismatch",
-                key_length=len(self.value),
+                # Log length for monitoring but not the actual value
+                key_length=len(self.value) if self.value else 0,
             )
             raise ValueError("Invalid idempotency key format")
         
         logger.debug(
             "idempotency_key_created",
-            idempotency_key=self.value,
+            # Only log non-sensitive metadata
+            key_length=len(self.value),
         )
     
     def __str__(self) -> str:
