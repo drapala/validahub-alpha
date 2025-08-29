@@ -1,0 +1,56 @@
+name: PR Size Check
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  check-size:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check PR size
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const { additions, deletions } = pr;
+            const totalChanges = additions + deletions;
+            
+            const SOFT_LIMIT = 200;
+            const HARD_LIMIT = 400;
+            
+            let message = `📊 PR Size Report\n\n`;
+            message += `- **Added lines**: ${additions}\n`;
+            message += `- **Deleted lines**: ${deletions}\n`;
+            message += `- **Total changes**: ${totalChanges}\n\n`;
+            
+            if (totalChanges > HARD_LIMIT) {
+              message += `❌ **PR exceeds hard limit of ${HARD_LIMIT} lines!**\n`;
+              message += `Please split this PR into smaller, focused changes.\n`;
+              message += `Use label \`size/override\` with justification if absolutely necessary.`;
+              
+              // Check for override label
+              const labels = pr.labels.map(l => l.name);
+              if (!labels.includes('size/override')) {
+                core.setFailed(`PR size (${totalChanges} lines) exceeds hard limit of ${HARD_LIMIT} lines`);
+              } else {
+                message += `\n\n✅ Override label detected - proceeding despite size.`;
+              }
+            } else if (totalChanges > SOFT_LIMIT) {
+              message += `⚠️ **PR exceeds soft limit of ${SOFT_LIMIT} lines**\n`;
+              message += `Consider splitting into smaller PRs for easier review.`;
+            } else {
+              message += `✅ **PR size is within recommended limits**`;
+            }
+            
+            // Post comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: message
+            });

@@ -47,6 +47,17 @@ except ImportError:
     pass
 
 
+# Define RetentionPeriod for TDD RED phase
+from dataclasses import dataclass
+
+@dataclass
+class RetentionPeriod:
+    """Data retention period configuration."""
+    duration_months: int
+    trigger: str
+    description: str
+
+
 class DataCategoryEnum(Enum):
     """Categories of personal data with different retention requirements."""
     USER_PROFILE = "user_profile"  # Name, email, CPF - 5 years after account closure
