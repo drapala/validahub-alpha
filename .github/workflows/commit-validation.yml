@@ -40,6 +40,12 @@ jobs:
             MESSAGE=$(git log --format=%s -n 1 $commit)
             FULL_MESSAGE=$(git log --format=%B -n 1 $commit)
             
+            # Skip validation for merge commits (GitHub generated)
+            if [[ "$MESSAGE" =~ ^Merge ]]; then
+              echo "⚠️  Skipping validation for merge commit: $MESSAGE"
+              continue
+            fi
+            
             echo "Validating commit $commit: $MESSAGE"
             
             # ValidaHub Conventional Commits validation
@@ -83,13 +89,6 @@ jobs:
                 VALIDATION_ERRORS+=("   Valid scopes: domain, application, infra, api, web, contracts, rules, analytics, ops, security, compliance, project, tests, docs, ci, logging, app, tech-debt, pipeline, release, agents, lint, architecture")
                 VALIDATION_ERRORS+=("")
               fi
-            fi
-            
-            # Check for merge commits (should be avoided)
-            if [[ "$MESSAGE" =~ ^Merge ]]; then
-              VALIDATION_ERRORS+=("⚠️  $commit: Merge commit detected - $MESSAGE")
-              VALIDATION_ERRORS+=("   Consider using rebase to maintain linear history")
-              VALIDATION_ERRORS+=("")
             fi
           done
           
