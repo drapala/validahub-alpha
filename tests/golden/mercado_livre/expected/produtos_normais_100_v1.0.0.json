@@ -1,0 +1,274 @@
+{
+  "metadata": {
+    "input_file": "produtos_normais_100.csv",
+    "rules_file": "mercado_livre_v1.0.0.yaml",
+    "rules_version": "1.0.0",
+    "marketplace": "mercado_livre",
+    "execution_date": "2024-08-29T10:30:00Z",
+    "total_rows": 20,
+    "processing_time_ms": 45.2,
+    "schema_version": "1.0.0",
+    "checksum": "a1b2c3d4e5f6789012345678901234567890abcd"
+  },
+  "validation_results": [
+    {
+      "row_index": 1,
+      "field": "title",
+      "rule_id": "title_normalize", 
+      "severity": "info",
+      "message": "Título normalizado para formato padrão",
+      "original_value": "  notebook lenovo ideapad 3  ",
+      "normalized_value": "Notebook Lenovo Ideapad 3"
+    },
+    {
+      "row_index": 3,
+      "field": "weight_kg",
+      "rule_id": "weight_convert",
+      "severity": "info", 
+      "message": "Peso convertido de gramas para quilogramas",
+      "original_value": "450",
+      "normalized_value": "0.45"
+    },
+    {
+      "row_index": 15,
+      "field": "sku",
+      "rule_id": "sku_required",
+      "severity": "error",
+      "message": "SKU é obrigatório para todos os produtos",
+      "original_value": null,
+      "suggested_value": null
+    },
+    {
+      "row_index": 15,
+      "field": "title",
+      "rule_id": "title_required",
+      "severity": "error",
+      "message": "Título é obrigatório",
+      "original_value": "",
+      "suggested_value": null
+    },
+    {
+      "row_index": 16,
+      "field": "brand",
+      "rule_id": "brand_electronics",
+      "severity": "error",
+      "message": "Marca é obrigatória para produtos eletrônicos",
+      "original_value": "",
+      "suggested_value": null
+    },
+    {
+      "row_index": 17,
+      "field": "price_brl", 
+      "rule_id": "price_positive",
+      "severity": "error",
+      "message": "Preço deve ser maior que zero",
+      "original_value": "-100.00",
+      "suggested_value": null
+    }
+  ],
+  "transformations": [
+    {
+      "row_index": 0,
+      "field": "title",
+      "rule_id": "title_normalize",
+      "original_value": "Smartphone Samsung Galaxy S21 128GB",
+      "transformed_value": "Smartphone Samsung Galaxy S21 128GB",
+      "operation": "title_case_normalize"
+    },
+    {
+      "row_index": 1,
+      "field": "title", 
+      "rule_id": "title_trim",
+      "original_value": "  notebook lenovo ideapad 3  ",
+      "transformed_value": "notebook lenovo ideapad 3",
+      "operation": "trim"
+    },
+    {
+      "row_index": 1,
+      "field": "title",
+      "rule_id": "title_normalize", 
+      "original_value": "notebook lenovo ideapad 3",
+      "transformed_value": "Notebook Lenovo Ideapad 3",
+      "operation": "title_case_normalize"
+    },
+    {
+      "row_index": 3,
+      "field": "weight_kg",
+      "rule_id": "weight_convert",
+      "original_value": "450",
+      "transformed_value": "0.45",
+      "operation": "gramas_to_kg"
+    },
+    {
+      "row_index": 1,
+      "field": "currency",
+      "rule_id": "currency_default",
+      "original_value": null,
+      "transformed_value": "BRL", 
+      "operation": "set"
+    },
+    {
+      "row_index": 4,
+      "field": "weight_kg",
+      "rule_id": "weight_convert",
+      "original_value": "25000",
+      "transformed_value": "25.0",
+      "operation": "gramas_to_kg"
+    },
+    {
+      "row_index": 5,
+      "field": "weight_kg", 
+      "rule_id": "weight_convert",
+      "original_value": "4200",
+      "transformed_value": "4.2",
+      "operation": "gramas_to_kg"
+    },
+    {
+      "row_index": 7,
+      "field": "weight_kg",
+      "rule_id": "weight_convert",
+      "original_value": "52",
+      "transformed_value": "0.052",
+      "operation": "gramas_to_kg"
+    },
+    {
+      "row_index": 8,
+      "field": "weight_kg",
+      "rule_id": "weight_convert", 
+      "original_value": "3500",
+      "transformed_value": "3.5",
+      "operation": "gramas_to_kg"
+    },
+    {
+      "row_index": 9,
+      "field": "weight_kg",
+      "rule_id": "weight_convert",
+      "original_value": "200",
+      "transformed_value": "0.2",
+      "operation": "gramas_to_kg"
+    }
+  ],
+  "suggestions": [
+    {
+      "row_index": 15,
+      "field": "category_path",
+      "rule_id": "category_suggest",
+      "current_value": "Teste",
+      "suggested_values": [
+        "Eletrônicos > Celulares e Smartphones",
+        "Casa e Eletrodomésticos", 
+        "Roupas e Calçados",
+        "Computação",
+        "Games"
+      ],
+      "confidence": 0.7,
+      "reason": "Sugeridas categorias baseadas no conteúdo"
+    },
+    {
+      "row_index": 17,
+      "field": "category_path",
+      "rule_id": "category_suggest", 
+      "current_value": "Teste",
+      "suggested_values": [
+        "Eletrônicos > Celulares e Smartphones",
+        "Casa e Eletrodomésticos",
+        "Roupas e Calçados", 
+        "Computação",
+        "Games"
+      ],
+      "confidence": 0.7,
+      "reason": "Sugeridas categorias baseadas no conteúdo"
+    },
+    {
+      "row_index": 0,
+      "field": "brand",
+      "rule_id": "brand_suggest",
+      "current_value": "Samsung",
+      "suggested_values": [
+        "Samsung"
+      ],
+      "confidence": 0.9,
+      "reason": "Marca sugerida baseada no título"
+    },
+    {
+      "row_index": 10,
+      "field": "brand",
+      "rule_id": "brand_suggest",
+      "current_value": "Apple", 
+      "suggested_values": [
+        "Samsung"
+      ],
+      "confidence": 0.9,
+      "reason": "Marca sugerida baseada no título"
+    },
+    {
+      "row_index": 0,
+      "field": "gtin",
+      "rule_id": "gtin_recommend",
+      "current_value": "7891234567890",
+      "suggested_values": [],
+      "confidence": 0.5,
+      "reason": "GTIN recomendado para produtos eletrônicos"
+    }
+  ],
+  "statistics": {
+    "total_errors": 4,
+    "total_warnings": 0,
+    "total_info": 2,
+    "total_transformations": 10,
+    "total_suggestions": 5,
+    "fields_validated": 16,
+    "rules_executed": 25,
+    "rows_processed": 20,
+    "rows_with_errors": 3,
+    "rows_with_warnings": 0,
+    "rows_with_transformations": 6,
+    "rows_with_suggestions": 3,
+    "execution_stats": {
+      "validation_phase_ms": 15.2,
+      "transformation_phase_ms": 18.5,
+      "suggestion_phase_ms": 11.5,
+      "total_execution_ms": 45.2,
+      "memory_usage_mb": 2.1,
+      "cache_hits": 12,
+      "vectorized_operations": 8
+    },
+    "rule_coverage": {
+      "sku_required": 20,
+      "sku_format": 19,
+      "title_required": 20, 
+      "title_length": 19,
+      "price_required": 20,
+      "price_positive": 20,
+      "price_reasonable": 20,
+      "gtin_format": 11,
+      "brand_electronics": 2,
+      "images_urls": 20,
+      "title_normalize": 19,
+      "title_trim": 19, 
+      "description_cleanup": 15,
+      "weight_convert": 10,
+      "currency_default": 5,
+      "category_suggest": 2,
+      "brand_suggest": 4,
+      "gtin_recommend": 2,
+      "duplicate_sku_check": 1,
+      "dataset_size_check": 1
+    }
+  },
+  "performance": {
+    "throughput_rows_per_second": 442.4,
+    "avg_time_per_row_ms": 2.26,
+    "memory_peak_mb": 2.8,
+    "cpu_usage_percent": 15.3,
+    "slo_compliance": {
+      "target_rows_per_second": 16667,
+      "target_max_time_ms": 3000,
+      "target_max_memory_mb": 512,
+      "rows_per_second_met": true,
+      "max_time_met": true,
+      "max_memory_met": true,
+      "overall_slo_met": true
+    }
+  }
+}
