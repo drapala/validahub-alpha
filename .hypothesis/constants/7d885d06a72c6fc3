@@ -1,0 +1,4 @@
+# file: /Users/drapala/WebstormProjects/validahub-alpha/src/shared/logging/factory.py
+# hypothesis_version: 6.138.7
+
+['1.0.0', 'CRITICAL', 'DEBUG', 'ENVIRONMENT', 'ERROR', 'INFO', 'ISO', 'SERVICE_VERSION', 'WARNING', 'development', 'event', 'level', 'logger', 'logging', 'structlog', 'timestamp', 'validahub']
