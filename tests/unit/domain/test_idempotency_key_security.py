@@ -2,7 +2,7 @@
 
 import pytest
 from uuid import uuid4
-from domain.value_objects import IdempotencyKey
+from src.domain.value_objects import IdempotencyKey
 
 
 class TestIdempotencyKeySecurity:

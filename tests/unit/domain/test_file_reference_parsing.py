@@ -1,7 +1,7 @@
 """Test FileReference URL parsing, path traversal, and storage patterns."""
 
 import pytest
-from domain.value_objects import FileReference
+from src.domain.value_objects import FileReference
 
 
 class TestFileReferenceParsing:

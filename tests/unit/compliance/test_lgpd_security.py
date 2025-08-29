@@ -942,9 +942,3 @@ class TestSecurityIncidentDetectionAndResponse:
         assert audit_call["false_positive"] is True
         assert audit_call["no_breach_confirmed"] is True
 
-
-# Helper functions for import handling
-def hashlib_sha256(data: str) -> str:
-    """Helper function to handle hashlib import during testing."""
-    import hashlib
-    return hashlib.sha256(data.encode()).hexdigest()
