@@ -75,12 +75,12 @@ jobs:
             SCOPE_PATTERN="^[a-z]+\(([^)]+)\)"
             if [[ "$MESSAGE" =~ $SCOPE_PATTERN ]]; then
               SCOPE="${BASH_REMATCH[1]}"
-              VALID_SCOPES="domain|application|infra|api|web|contracts|rules|analytics|ops|security|compliance|project|tests|docs|ci|logging|app|tech-debt|pipeline|release|agents"
+              VALID_SCOPES="domain|application|infra|api|web|contracts|rules|analytics|ops|security|compliance|project|tests|docs|ci|logging|app|tech-debt|pipeline|release|agents|lint|architecture"
               SCOPE_CHECK="^($VALID_SCOPES)$"
               
               if [[ ! "$SCOPE" =~ $SCOPE_CHECK ]]; then
                 VALIDATION_ERRORS+=("❌ $commit: Invalid scope '$SCOPE' - $MESSAGE")
-                VALIDATION_ERRORS+=("   Valid scopes: domain, application, infra, api, web, contracts, rules, analytics, ops, security, compliance, project, tests, docs, ci, logging, app, tech-debt, pipeline, release, agents")
+                VALIDATION_ERRORS+=("   Valid scopes: domain, application, infra, api, web, contracts, rules, analytics, ops, security, compliance, project, tests, docs, ci, logging, app, tech-debt, pipeline, release, agents, lint, architecture")
                 VALIDATION_ERRORS+=("")
               fi
             fi
@@ -132,7 +132,7 @@ jobs:
             
             **Valid types**: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, rules, contracts, telemetry
             
-            **Valid scopes**: domain, application, infra, api, web, contracts, rules, analytics, ops, security, compliance, project, tests, docs, ci, logging, app, tech-debt, pipeline, release, agents
+            **Valid scopes**: domain, application, infra, api, web, contracts, rules, analytics, ops, security, compliance, project, tests, docs, ci, logging, app, tech-debt, pipeline, release, agents, lint, architecture
             
             ### ✅ Examples
             - \`feat(domain): add job retry capability\`
