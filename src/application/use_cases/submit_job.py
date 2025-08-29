@@ -10,14 +10,8 @@ from src.application.errors import RateLimitExceeded, ValidationError
 from src.application.ports import JobRepository, RateLimiter, EventBus, LogPublisher
 from src.domain.job import Job, JobStatus
 from src.domain.value_objects import TenantId, IdempotencyKey, Channel, FileReference, RulesProfileId
-from shared.logging.context import get_correlation_id
-# Graceful handling of logging dependencies
-try:
-    from shared.logging import get_logger
-except ImportError:
-    import logging
-    def get_logger(name: str):
-        return logging.getLogger(name)
+# Removed shared logging imports to maintain clean architecture
+# Logging is now handled through LogPublisher port and domain events
 
 
 @dataclass(frozen=True)
@@ -97,7 +91,8 @@ class SubmitJobUseCase:
         self._rate_limiter = rate_limiter
         self._event_bus = event_bus
         self._log_publisher = log_publisher
-        self._logger = get_logger("application.submit_job")
+        # Removed direct logging - using LogPublisher port instead
+        # self._logger = get_logger("application.submit_job")
     
     def execute(self, request: SubmitJobRequest) -> SubmitJobResponse:
         """

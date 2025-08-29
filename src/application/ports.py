@@ -9,7 +9,7 @@ from typing import Optional, List
 
 from src.domain.job import Job
 from src.domain.value_objects import TenantId, IdempotencyKey
-from src.application.ports.logging import LoggingPort
+# Removed LoggingPort import to maintain clean architecture
 
 
 class JobRepository(ABC):

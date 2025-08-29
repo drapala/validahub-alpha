@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from dataclasses import asdict
 
 from src.application.ports import EventBus
-from src.application.ports.logging import log_event_publish, LoggingPort
+from src.infrastructure.logging.utilities import log_event_publish, LoggingPort
 from shared.logging import get_logger
 from shared.logging.context import get_correlation_id
 

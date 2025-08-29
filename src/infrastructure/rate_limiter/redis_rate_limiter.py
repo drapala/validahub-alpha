@@ -9,7 +9,7 @@ import time
 from datetime import datetime, timedelta
 
 from src.application.ports import RateLimiter
-from src.application.ports.logging import log_rate_limit_check, LoggingPort
+from src.infrastructure.logging.utilities import log_rate_limit_check, LoggingPort
 from src.domain.value_objects import TenantId
 from shared.logging import get_logger
 from shared.logging.context import get_correlation_id

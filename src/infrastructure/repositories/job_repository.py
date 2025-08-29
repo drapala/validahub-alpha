@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 import time
 
 from src.application.ports import JobRepository
-from src.application.ports.logging import log_repository_query, LoggingPort
+from src.infrastructure.logging.utilities import log_repository_query, LoggingPort
 from src.domain.job import Job, JobStatus
 from src.domain.value_objects import TenantId, IdempotencyKey, JobId
 from shared.logging import get_logger
