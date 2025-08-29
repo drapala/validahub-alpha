@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-alpha.1] - 2025-08-29
+
+### 🏗️ Architecture Foundation
+- **Complete Domain-Driven Design (DDD)** architecture implementation
+- **Clean Architecture** with ports & adapters pattern  
+- **Multi-tenant foundation** with complete tenant isolation
+- **Domain events pattern** for observability without framework dependencies
+- **LGPD compliance** by design with audit logging and data protection
+
+### 🔐 Security & Compliance
+- **JWT authentication** with scopes-based authorization
+- **Rate limiting** per tenant via Redis token bucket
+- **CSV injection protection** blocking formula characters (=, +, -, @)
+- **Unicode security** with NFKC normalization and control character detection
+- **Path traversal prevention** in file references
+- **Audit trail** for all domain events and state transitions
+
+### 🚀 Core Features  
+- **Job processing pipeline** with state machine (queued → running → succeeded/failed)
+- **Idempotency protection** with key validation and duplicate prevention
+- **Real-time updates** via Server-Sent Events
+- **Structured logging** with correlation IDs and tenant context
+- **Multi-marketplace rules** engine foundation
+
+### 🧪 Developer Experience
+- **CI/CD pipeline** with architecture validation, security scanning, and automated testing
+- **104+ unit tests** with property-based testing via Hypothesis  
+- **Architecture tests** enforcing clean layer dependencies
+- **Conventional commits** with automated validation
+- **Docker development** environment with one-command setup
+- **Complete documentation** with ADRs, security reports, and API specs
+
 ### ✨ Features
 - feat(domain): establish DDD foundation with multi-tenant value objects
 - feat(domain): add Job aggregate with state machine
