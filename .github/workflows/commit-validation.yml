@@ -1,0 +1,154 @@
+name: Commit Message Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        run: |
+          # Get commits to check
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PR, check all commits in the PR
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            COMMITS=$(git rev-list --reverse ${BASE_SHA}..${HEAD_SHA})
+          else
+            # For push to main, check just the pushed commits
+            COMMITS="${{ github.sha }}"
+          fi
+          
+          VALIDATION_ERRORS=()
+          COMMIT_COUNT=0
+          
+          for commit in $COMMITS; do
+            COMMIT_COUNT=$((COMMIT_COUNT + 1))
+            MESSAGE=$(git log --format=%s -n 1 $commit)
+            FULL_MESSAGE=$(git log --format=%B -n 1 $commit)
+            
+            echo "Validating commit $commit: $MESSAGE"
+            
+            # ValidaHub Conventional Commits validation
+            # Pattern: type(scope): message
+            PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|rules|contracts|telemetry)(\([a-z0-9,-]+\))?!?: .+"
+            if [[ ! "$MESSAGE" =~ $PATTERN ]]; then
+              VALIDATION_ERRORS+=("❌ $commit: Invalid format - $MESSAGE")
+              VALIDATION_ERRORS+=("   Expected: type(scope): message")
+              VALIDATION_ERRORS+=("   Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, rules, contracts, telemetry")
+              VALIDATION_ERRORS+=("")
+            fi
+            
+            # Check message length (≤100 chars as per CLAUDE.md)
+            if [[ ${#MESSAGE} -gt 100 ]]; then
+              VALIDATION_ERRORS+=("❌ $commit: Message too long (${#MESSAGE}/100 chars) - $MESSAGE")
+              VALIDATION_ERRORS+=("")
+            fi
+            
+            # Check subject case (should not start with capital letter)
+            CASE_PATTERN="^[a-z]+(\([^)]*\))?!?: [A-Z]"
+            if [[ "$MESSAGE" =~ $CASE_PATTERN ]]; then
+              VALIDATION_ERRORS+=("❌ $commit: Subject should not start with capital letter - $MESSAGE")
+              VALIDATION_ERRORS+=("")
+            fi
+            
+            # Check for period at end
+            if [[ "$MESSAGE" =~ \.$ ]]; then
+              VALIDATION_ERRORS+=("❌ $commit: Message should not end with period - $MESSAGE")
+              VALIDATION_ERRORS+=("")
+            fi
+            
+            # Validate scope if present
+            SCOPE_PATTERN="^[a-z]+\(([^)]+)\)"
+            if [[ "$MESSAGE" =~ $SCOPE_PATTERN ]]; then
+              SCOPE="${BASH_REMATCH[1]}"
+              VALID_SCOPES="domain|application|infra|api|web|contracts|rules|analytics|ops|security|compliance|project|tests|docs|ci|logging|app|tech-debt|pipeline|release|agents|lint|architecture"
+              SCOPE_CHECK="^($VALID_SCOPES)$"
+              
+              if [[ ! "$SCOPE" =~ $SCOPE_CHECK ]]; then
+                VALIDATION_ERRORS+=("❌ $commit: Invalid scope '$SCOPE' - $MESSAGE")
+                VALIDATION_ERRORS+=("   Valid scopes: domain, application, infra, api, web, contracts, rules, analytics, ops, security, compliance, project, tests, docs, ci, logging, app, tech-debt, pipeline, release, agents, lint, architecture")
+                VALIDATION_ERRORS+=("")
+              fi
+            fi
+            
+            # Check for merge commits (should be avoided)
+            if [[ "$MESSAGE" =~ ^Merge ]]; then
+              VALIDATION_ERRORS+=("⚠️  $commit: Merge commit detected - $MESSAGE")
+              VALIDATION_ERRORS+=("   Consider using rebase to maintain linear history")
+              VALIDATION_ERRORS+=("")
+            fi
+          done
+          
+          echo "Validated $COMMIT_COUNT commits"
+          
+          if [[ ${#VALIDATION_ERRORS[@]} -gt 0 ]]; then
+            echo "❌ Commit message validation failed!"
+            echo ""
+            echo "Validation errors:"
+            printf '%s\n' "${VALIDATION_ERRORS[@]}"
+            echo ""
+            echo "📖 See CLAUDE.md section 5 for commit message standards:"
+            echo "   - type(scope): message ≤100 chars"
+            echo "   - lowercase subject, no period at end"
+            echo "   - Breaking changes: type(scope)!: message"
+            echo ""
+            exit 1
+          else
+            echo "✅ All commit messages are valid!"
+          fi
+
+      - name: Comment on PR with validation results
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const comment = `## ❌ Commit Message Validation Failed
+            
+            This PR contains commit messages that don't follow ValidaHub's Conventional Commits standards.
+            
+            ### 📋 ValidaHub Commit Standards
+            
+            **Format**: \`type(scope): message\`
+            
+            **Rules**:
+            - Message ≤ 100 characters
+            - Subject in lowercase, no period at end
+            - Breaking changes: \`type(scope)!: message\`
+            
+            **Valid types**: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, rules, contracts, telemetry
+            
+            **Valid scopes**: domain, application, infra, api, web, contracts, rules, analytics, ops, security, compliance, project, tests, docs, ci, logging, app, tech-debt, pipeline, release, agents, lint, architecture
+            
+            ### ✅ Examples
+            - \`feat(domain): add job retry capability\`
+            - \`fix(api): handle null tenant_id in logs\`
+            - \`refactor(infra)!: migrate to Redis Streams\`
+            
+            ### 🔧 How to fix
+            1. Use \`git rebase -i HEAD~n\` to edit commit messages
+            2. Or squash commits with proper message format
+            3. Force push to update the PR
+            
+            📖 See [CLAUDE.md section 5](CLAUDE.md#5-regras-de-pr-e-commits) for complete standards.`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: comment
+            });

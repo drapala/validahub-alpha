@@ -1,0 +1,133 @@
+[build-system]
+requires = ["setuptools>=70.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "validahub"
+version = "0.1.0"
+description = "CSV validation and correction platform for marketplaces"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "ValidaHub Team", email = "team@validahub.io"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "python-dateutil>=2.8",
+    "structlog>=24.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-asyncio>=0.24",
+    "hypothesis>=6.0",
+    "coverage[toml]>=7.0",
+    "ruff>=0.6",
+    "black>=24.0",
+    "mypy>=1.0",
+    "types-python-dateutil",
+]
+
+[project.urls]
+Homepage = "https://validahub.io"
+Documentation = "https://docs.validahub.io"
+Repository = "https://github.com/validahub/validahub"
+Issues = "https://github.com/validahub/validahub/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["domain", "application", "shared", "shared.logging"]
+
+[tool.setuptools.package-data]
+"*" = ["py.typed"]
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+precision = 2
+skip_covered = false
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --tb=short"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # isort
+    "C90",  # mccabe
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "PL",   # pylint
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+    "PLR0913",  # too many arguments
+    "PLR2004",  # magic value comparison
+    "PLC0415",  # import outside toplevel
+    "PLW0603",  # global statement
+    "C901",  # too complex
+    "B904",  # raise without from
+    "PLR0912",  # too many branches
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-first-party = ["domain", "application", "shared"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.pyi?$'
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_configs = true
+no_implicit_reexport = true
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"

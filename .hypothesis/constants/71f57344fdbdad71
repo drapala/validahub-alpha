@@ -1,0 +1,4 @@
+# file: /Users/drapala/WebstormProjects/validahub-alpha/src/domain/value_objects.py
+# hypothesis_version: 6.138.7
+
+[0.0, '+', '-', '.', '../', '.bat', '.cmd', '.com', '.dll', '.exe', '.scr', '.sh', '.zip', '/', '=', '@', 'Cc', 'Cf', 'ERROR', 'NFKC', 'RulesProfileId', '\\', '^t_[a-z0-9_]{1,47}$', 'amazon', 'americanas', 'channel_created', 'csv_formula', 'domain.channel', 'domain.tenant_id', 'file_reference', 'http://', 'https://', 'idempotency_key', 'invalid_length', 'invalid_type', 'magalu', 'mercado_livre', 'negative_values', 'path_traversal', 'pattern_mismatch', 's3://', 'shopee', 'tenant_id', 'tenant_id_created', 'unicode_control', 'value']

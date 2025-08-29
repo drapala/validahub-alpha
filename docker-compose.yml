@@ -1,0 +1,40 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/work
+    working_dir: /work
+    environment:
+      - PYTHONPATH=/work
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    
+  # Test runner with coverage
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/work
+    working_dir: /work
+    environment:
+      - PYTHONPATH=/work
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    command: pytest -q tests/
+    
+  # Test runner for specific tests
+  test-domain:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/work
+    working_dir: /work
+    environment:
+      - PYTHONPATH=/work
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    command: pytest -q tests/unit/domain/

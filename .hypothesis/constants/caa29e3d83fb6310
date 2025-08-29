@@ -1,0 +1,4 @@
+# file: /Users/drapala/WebstormProjects/validahub-alpha/src/domain/job.py
+# hypothesis_version: 6.138.7
+
+['Job', 'completed', 'failed', 'queued', 'retrying', 'running', 'submitted']

@@ -1,0 +1,93 @@
+name: PR Size Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled]
+
+permissions:
+  pull-requests: write
+  issues: write
+  contents: read
+
+jobs:
+  check-size:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check PR size
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Fetch PR details with labels
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            
+            const { additions, deletions, labels } = pullRequest;
+            const totalChanges = additions + deletions;
+            
+            const SOFT_LIMIT = 200;
+            const HARD_LIMIT = 400;
+            
+            // Check for override label
+            const hasOverride = labels.some(label => label.name === 'size/override');
+            
+            let message = `📊 PR Size Report\n\n`;
+            message += `- **Added lines**: ${additions}\n`;
+            message += `- **Deleted lines**: ${deletions}\n`;
+            message += `- **Total changes**: ${totalChanges}\n\n`;
+            
+            if (totalChanges > HARD_LIMIT) {
+              if (hasOverride) {
+                message += `⚠️ **PR exceeds hard limit of ${HARD_LIMIT} lines**\n`;
+                message += `✅ **Override label detected** - proceeding despite size.\n`;
+                message += `Please ensure justification is documented in PR description or comments.`;
+                console.log(`PR size override: ${totalChanges} lines with size/override label`);
+              } else {
+                message += `❌ **PR exceeds hard limit of ${HARD_LIMIT} lines!**\n`;
+                message += `Please split this PR into smaller, focused changes.\n`;
+                message += `Use label \`size/override\` with justification if absolutely necessary.`;
+                core.setFailed(`PR size (${totalChanges} lines) exceeds hard limit of ${HARD_LIMIT} lines. Add 'size/override' label with justification to bypass.`);
+              }
+            } else if (totalChanges > SOFT_LIMIT) {
+              message += `⚠️ **PR exceeds soft limit of ${SOFT_LIMIT} lines**\n`;
+              message += `Consider splitting into smaller PRs for easier review.`;
+            } else {
+              message += `✅ **PR size is within recommended limits**`;
+            }
+            
+            // Find and delete previous size check comments
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+            
+            const botComments = comments.filter(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('📊 PR Size Report')
+            );
+            
+            for (const comment of botComments) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: comment.id
+              });
+            }
+            
+            // Post new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: message
+            });

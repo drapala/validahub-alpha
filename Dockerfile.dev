@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /work
+
+# Copy dependency files first for better caching
+COPY pyproject.toml requirements*.txt* ./
+
+# Install dependencies
+RUN pip install -U pip && \
+    ( [ -f requirements-dev.txt ] && pip install -r requirements-dev.txt || \
+      [ -f requirements.txt ] && pip install -r requirements.txt || \
+      pip install pytest hypothesis )
+
+# Default command runs tests quietly
+CMD ["pytest", "-q"]

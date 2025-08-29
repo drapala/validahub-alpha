@@ -1,0 +1,229 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type (patch, minor, major, prerelease)'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - prerelease
+          - alpha
+          - beta
+          - rc
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install toml
+
+      - name: Determine version
+        id: version
+        run: |
+          # Get current version from pyproject.toml
+          CURRENT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # Calculate next version based on input or commits
+          if [ "${{ github.event_name }}" == "push" ]; then
+            # Tag push - use tag version
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            # Manual trigger - calculate based on type
+            IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+            
+            case "${{ github.event.inputs.release_type }}" in
+              major)
+                VERSION="$((major + 1)).0.0"
+                ;;
+              minor)
+                VERSION="${major}.$((minor + 1)).0"
+                ;;
+              patch)
+                VERSION="${major}.${minor}.$((patch + 1))"
+                ;;
+              alpha)
+                VERSION="${major}.${minor}.${patch}-alpha.$(date +%Y%m%d%H%M%S)"
+                ;;
+              beta)
+                VERSION="${major}.${minor}.${patch}-beta.$(date +%Y%m%d%H%M%S)"
+                ;;
+              rc)
+                VERSION="${major}.${minor}.${patch}-rc.$(date +%Y%m%d%H%M%S)"
+                ;;
+              prerelease)
+                VERSION="${major}.${minor}.${patch}-pre.$(date +%Y%m%d%H%M%S)"
+                ;;
+            esac
+          fi
+          
+          echo "next=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Next version: $VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get commits since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"%s (%h)" --no-merges)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s (%h)" --no-merges)
+          fi
+          
+          # Group commits by type following ValidaHub conventional commits
+          cat > RELEASE_NOTES.md << EOF
+          # Release v${{ steps.version.outputs.next }}
+          
+          **Release Date**: $(date +"%Y-%m-%d")
+          
+          ## 🎯 Highlights
+          EOF
+          
+          # Features
+          echo "" >> RELEASE_NOTES.md
+          echo "### ✨ Features" >> RELEASE_NOTES.md
+          echo "$COMMITS" | grep -E "^feat(\(.*\))?:" | sed 's/^feat(\(.*\))://' | sed 's/^feat://' | sed 's/^/- /' >> RELEASE_NOTES.md || echo "- No new features" >> RELEASE_NOTES.md
+          
+          # Bug Fixes
+          echo "" >> RELEASE_NOTES.md
+          echo "### 🐛 Bug Fixes" >> RELEASE_NOTES.md
+          echo "$COMMITS" | grep -E "^fix(\(.*\))?:" | sed 's/^fix(\(.*\))://' | sed 's/^fix://' | sed 's/^/- /' >> RELEASE_NOTES.md || echo "- No bug fixes" >> RELEASE_NOTES.md
+          
+          # Breaking Changes (ValidaHub uses ! syntax)
+          if echo "$COMMITS" | grep -q "!:"; then
+            echo "" >> RELEASE_NOTES.md
+            echo "### 💥 Breaking Changes" >> RELEASE_NOTES.md
+            echo "$COMMITS" | grep "!:" | sed 's/^/- /' >> RELEASE_NOTES.md
+          fi
+          
+          # Rules and Contracts (ValidaHub specific)
+          if echo "$COMMITS" | grep -qE "^(rules|contracts)"; then
+            echo "" >> RELEASE_NOTES.md
+            echo "### 📋 Rules & Contracts" >> RELEASE_NOTES.md
+            echo "$COMMITS" | grep -E "^(rules|contracts)" | sed 's/^[a-z]*(\(.*\))://' | sed 's/^[a-z]*://' | sed 's/^/- /' >> RELEASE_NOTES.md
+          fi
+          
+          # Telemetry
+          if echo "$COMMITS" | grep -q "^telemetry"; then
+            echo "" >> RELEASE_NOTES.md
+            echo "### 📊 Telemetry & Analytics" >> RELEASE_NOTES.md
+            echo "$COMMITS" | grep "^telemetry" | sed 's/^telemetry(\(.*\))://' | sed 's/^telemetry://' | sed 's/^/- /' >> RELEASE_NOTES.md
+          fi
+          
+          # Performance
+          if echo "$COMMITS" | grep -q "^perf"; then
+            echo "" >> RELEASE_NOTES.md
+            echo "### ⚡ Performance Improvements" >> RELEASE_NOTES.md
+            echo "$COMMITS" | grep "^perf" | sed 's/^perf(\(.*\))://' | sed 's/^perf://' | sed 's/^/- /' >> RELEASE_NOTES.md
+          fi
+          
+          # Other changes
+          echo "" >> RELEASE_NOTES.md
+          echo "### 🔧 Maintenance" >> RELEASE_NOTES.md
+          echo "$COMMITS" | grep -E "^(chore|refactor|docs|style|test|ci)(\(.*\))?:" | sed 's/^[a-z]*(\(.*\))://' | sed 's/^[a-z]*://' | sed 's/^/- /' >> RELEASE_NOTES.md || echo "- No maintenance updates" >> RELEASE_NOTES.md
+          
+          # Full changelog link
+          echo "" >> RELEASE_NOTES.md
+          if [ -n "$LAST_TAG" ]; then
+            echo "**Full Changelog**: [$LAST_TAG...v${{ steps.version.outputs.next }}](https://github.com/${{ github.repository }}/compare/$LAST_TAG...v${{ steps.version.outputs.next }})" >> RELEASE_NOTES.md
+          fi
+
+      - name: Update version in files
+        run: |
+          # Update pyproject.toml
+          python -c "
+          import toml
+          config = toml.load('pyproject.toml')
+          config['project']['version'] = '${{ steps.version.outputs.next }}'
+          with open('pyproject.toml', 'w') as f:
+              toml.dump(config, f)
+          "
+          
+          # Update other version references if needed
+          if [ -f "src/__version__.py" ]; then
+            echo "__version__ = '${{ steps.version.outputs.next }}'" > src/__version__.py
+          fi
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pyproject.toml
+          git diff --cached --quiet || git commit -m "chore(release): bump version to v${{ steps.version.outputs.next }} [skip ci]"
+
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ steps.version.outputs.next }}" -m "Release v${{ steps.version.outputs.next }}"
+          git push origin main --follow-tags
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.next }}
+          name: v${{ steps.version.outputs.next }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.next, '-') }}
+          generate_release_notes: false
+
+      - name: Build Docker image
+        run: |
+          docker build -t validahub:${{ steps.version.outputs.next }} .
+          docker tag validahub:${{ steps.version.outputs.next }} validahub:latest
+          echo "🐳 Docker image built: validahub:${{ steps.version.outputs.next }}"
+
+      - name: Update CHANGELOG.md
+        run: |
+          # Prepend new release to CHANGELOG
+          if [ -f CHANGELOG.md ]; then
+            mv CHANGELOG.md CHANGELOG.old.md
+          else
+            touch CHANGELOG.old.md
+          fi
+          
+          cat RELEASE_NOTES.md > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "---" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          cat CHANGELOG.old.md >> CHANGELOG.md
+          rm CHANGELOG.old.md
+          
+          git add CHANGELOG.md
+          git commit -m "docs: update CHANGELOG for v${{ steps.version.outputs.next }} [skip ci]"
+          git push origin main
+
+      - name: Notify release
+        run: |
+          echo "🚀 Release v${{ steps.version.outputs.next }} completed!"
+          echo "📦 Docker image: validahub:${{ steps.version.outputs.next }}"
+          echo "📝 Release notes: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.next }}"
