@@ -1,19 +1,19 @@
 """Test TenantId edge cases, Unicode handling, and marketplace patterns."""
 
 import pytest
-from domain.value_objects import TenantId
+from src.domain.value_objects import TenantId
 
 
 class TestTenantIdEdgeCases:
     """Test TenantId with edge cases and Unicode."""
     
     @pytest.mark.parametrize("raw,expected", [
-        ("T_ACME", "t_acme"),
-        (" t_acme ", "t_acme"),
+        ("T_ACME123", "t_acme123"),
+        (" t_acme123 ", "t_acme123"),
         ("  T_MARKETPLACE  ", "t_marketplace"),
-        ("T_ML", "t_ml"),  # Mercado Livre prefix
-        ("T_MG", "t_mg"),  # Magazine Luiza prefix
-        ("T_AZ", "t_az"),  # Amazon prefix
+        ("T_ML123", "t_ml123"),  # Mercado Livre prefix
+        ("T_MG456", "t_mg456"),  # Magazine Luiza prefix
+        ("T_AZ789", "t_az789"),  # Amazon prefix
     ])
     def test_tenant_id_normalizes_lower_strip(self, raw, expected):
         """TenantId should normalize to lowercase and strip whitespace."""
@@ -25,7 +25,7 @@ class TestTenantIdEdgeCases:
         "t_äcme",  # Non-ASCII
         "t_acme!",  # Special char
         "acme",  # Missing prefix
-        "t_" + "a" * 48,  # Too long (51 chars total)
+        "t_" + "a" * 48,  # Too long (50 chars total, 48 after t_)
         "ab",  # Too short
         "t",  # Too short
         "  ",  # Only whitespace
@@ -39,24 +39,24 @@ class TestTenantIdEdgeCases:
     def test_tenant_id_rejects_zero_width_characters(self):
         """TenantId should reject zero-width characters."""
         with pytest.raises(ValueError):
-            TenantId("t_\u200bacme")  # Zero-width space
+            TenantId("t_\u200bacme123")  # Zero-width space
         
         with pytest.raises(ValueError):
-            TenantId("t_ac\u200cme")  # Zero-width non-joiner
+            TenantId("t_ac\u200cme123")  # Zero-width non-joiner
         
         with pytest.raises(ValueError):
-            TenantId("t_ac\u200dme")  # Zero-width joiner
+            TenantId("t_ac\u200dme123")  # Zero-width joiner
     
     def test_tenant_id_rejects_control_characters(self):
         """TenantId should reject control characters."""
         with pytest.raises(ValueError):
-            TenantId("t_acme\x00")  # Null byte
+            TenantId("t_acme123\x00")  # Null byte
         
         with pytest.raises(ValueError):
-            TenantId("t_ac\x1bme")  # Escape character
+            TenantId("t_ac\x1bme123")  # Escape character
         
         with pytest.raises(ValueError):
-            TenantId("t_ac\x7fme")  # Delete character
+            TenantId("t_ac\x7fme123")  # Delete character
     
     @pytest.mark.parametrize("marketplace_prefix", [
         "t_ml",  # Mercado Livre
@@ -86,27 +86,27 @@ class TestTenantIdEdgeCases:
     def test_tenant_id_rejects_hyphen(self):
         """TenantId should reject hyphen (not part of allowed chars)."""
         with pytest.raises(ValueError):
-            TenantId("t_acme-corp")
+            TenantId("t_acme-corp123")
     
     def test_tenant_id_rejects_dot(self):
         """TenantId should reject dot (not part of allowed chars)."""
         with pytest.raises(ValueError):
-            TenantId("t_acme.com")
+            TenantId("t_acme123.com")
     
     def test_tenant_id_boundary_lengths(self):
         """Test TenantId at exact boundary lengths."""
-        # Minimum valid: 3 chars
-        min_tenant = TenantId("abc")
-        assert str(min_tenant) == "abc"
+        # Minimum valid: t_ + 1 char = 3 chars total
+        min_tenant = TenantId("t_a")
+        assert str(min_tenant) == "t_a"
         
-        # Maximum valid: 50 chars
-        max_tenant = TenantId("a" * 50)
-        assert str(max_tenant) == "a" * 50
+        # Maximum valid: t_ + 47 chars = 49 chars total
+        max_tenant = TenantId("t_" + "a" * 47)
+        assert str(max_tenant) == "t_" + "a" * 47
         
-        # One under minimum: 2 chars
+        # One under minimum: t_ only = 2 chars
         with pytest.raises(ValueError):
-            TenantId("ab")
+            TenantId("t_")
         
-        # One over maximum: 51 chars
+        # One over maximum: t_ + 48 chars = 50 chars total
         with pytest.raises(ValueError):
-            TenantId("a" * 51)
+            TenantId("t_" + "a" * 48)

@@ -36,6 +36,7 @@ class JobId:
 class TenantId:
     """Tenant identifier with normalization and validation."""
     value: str
+    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^t_[a-z0-9_]{1,47}$")
     
     def __post_init__(self) -> None:
         logger = get_logger("domain.tenant_id")
@@ -49,8 +50,8 @@ class TenantId:
             )
             raise ValueError("Invalid tenant id format")
         
-        # Normalize
-        normalized = self.value.strip().lower()
+        # Normalize with NFKC Unicode normalization
+        normalized = unicodedata.normalize("NFKC", self.value).strip().lower()
         
         # Unicode validation
         if _has_control_or_format(normalized):
@@ -60,12 +61,12 @@ class TenantId:
             )
             raise ValueError("Invalid tenant id format")
         
-        # Length validation
-        if not normalized or len(normalized) < 3 or len(normalized) > 50:
+        # Regex validation for t_ prefix pattern
+        if not self._pattern.match(normalized):
             logger.warning(
                 "tenant_id_validation_failed",
-                error_type="invalid_length",
-                length=len(normalized) if normalized else 0,
+                error_type="pattern_mismatch",
+                value=normalized,
             )
             raise ValueError("Invalid tenant id format")
         
