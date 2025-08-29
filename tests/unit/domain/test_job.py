@@ -1,11 +1,12 @@
 """Test Job domain entity."""
 
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from uuid import uuid4
 
-from domain.job import Job, JobStatus, InvalidTransition
-from domain.value_objects import TenantId, IdempotencyKey
+from src.domain.job import Job, JobStatus
+from src.domain.errors import DomainError, InvalidStateTransitionError
+from src.domain.value_objects import JobId, TenantId
 
 
 class TestJobStatus:
@@ -14,336 +15,416 @@ class TestJobStatus:
     def test_all_statuses_exist(self):
         """JobStatus should have all expected statuses."""
         expected_statuses = {
-            "queued", "running", "succeeded", "failed", 
-            "cancelled", "expired", "retrying"
+            "submitted", "running", "completed", "failed", "retrying"
         }
         actual_statuses = {status.value for status in JobStatus}
         assert actual_statuses == expected_statuses
 
 
-class TestJob:
-    """Test Job entity."""
+class TestJobCreation:
+    """Test Job creation and initialization."""
     
-    def test_create_job_with_valid_data(self):
-        """Should create job with valid data."""
-        job_id = str(uuid4())
+    def test_create_job_with_factory_method(self):
+        """Should create job with factory method."""
         tenant_id = TenantId("tenant_123")
-        now = datetime.now(timezone.utc)
+        
+        job = Job.create(tenant_id)
+        
+        assert isinstance(job.id, JobId)
+        assert job.tenant_id == tenant_id
+        assert job.status == JobStatus.SUBMITTED
+        assert job.created_at.tzinfo is not None
+        assert job.created_at.tzinfo == timezone.utc
+    
+    def test_create_job_with_constructor(self):
+        """Should create job with direct constructor."""
+        job_id = JobId(uuid4())
+        tenant_id = TenantId("tenant_123")
+        created_at = datetime.now(timezone.utc)
         
         job = Job(
             id=job_id,
             tenant_id=tenant_id,
-            seller_id="seller_456",
-            channel="mercado_livre",
-            job_type="csv_validation",
-            status=JobStatus.QUEUED,
-            file_ref="s3://bucket/file.csv",
-            rules_profile_id="ml@1.2.3",
-            idempotency_key=IdempotencyKey("test-key-123"),
-            created_at=now,
-            updated_at=now
+            status=JobStatus.SUBMITTED,
+            created_at=created_at
         )
         
         assert job.id == job_id
         assert job.tenant_id == tenant_id
-        assert job.seller_id == "seller_456"
-        assert job.channel == "mercado_livre"
-        assert job.job_type == "csv_validation"
-        assert job.status == JobStatus.QUEUED
-        assert job.file_ref == "s3://bucket/file.csv"
-        assert job.rules_profile_id == "ml@1.2.3"
-        assert job.idempotency_key.value == "test-key-123"
-        assert job.created_at == now
-        assert job.updated_at == now
-        assert job.counters.errors == 0
-        assert job.counters.warnings == 0
-        assert job.counters.total == 0
+        assert job.status == JobStatus.SUBMITTED
+        assert job.created_at == created_at
+    
+    def test_job_requires_timezone_aware_datetime(self):
+        """Should raise error if created_at is not timezone-aware."""
+        job_id = JobId(uuid4())
+        tenant_id = TenantId("tenant_123")
+        naive_datetime = datetime.now()  # No timezone
+        
+        with pytest.raises(DomainError, match="created_at must be timezone-aware"):
+            Job(
+                id=job_id,
+                tenant_id=tenant_id,
+                status=JobStatus.SUBMITTED,
+                created_at=naive_datetime
+            )
+    
+    def test_job_is_immutable(self):
+        """Should ensure Job instances are immutable."""
+        job = Job.create(TenantId("tenant_123"))
+        
+        # Attempt to modify should raise error
+        with pytest.raises(Exception):  # dataclass frozen=True raises FrozenInstanceError
+            job.status = JobStatus.RUNNING
 
 
-class TestJobTransitions:
-    """Test job status transitions."""
+class TestValidTransitions:
+    """Test valid job status transitions."""
     
     @pytest.fixture
-    def base_job(self):
-        """Create base job for transition tests."""
-        return Job(
-            id=str(uuid4()),
-            tenant_id=TenantId("tenant_123"),
-            seller_id="seller_456",
-            channel="mercado_livre",
-            job_type="csv_validation",
-            status=JobStatus.QUEUED,
-            file_ref="s3://bucket/file.csv",
-            rules_profile_id="ml@1.2.3",
-            idempotency_key=IdempotencyKey("test-key-123"),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
-        )
+    def submitted_job(self):
+        """Create a job in SUBMITTED status."""
+        return Job.create(TenantId("tenant_123"))
     
-    def test_queued_to_running_transition(self, base_job):
-        """Should allow transition from queued to running."""
-        old_updated_at = base_job.updated_at
+    def test_submitted_to_running_transition(self, submitted_job):
+        """Should allow transition from SUBMITTED to RUNNING."""
+        running_job = submitted_job.start()
         
-        base_job.start_processing()
-        
-        assert base_job.status == JobStatus.RUNNING
-        assert base_job.updated_at > old_updated_at
+        assert running_job.status == JobStatus.RUNNING
+        assert running_job.id == submitted_job.id
+        assert running_job.tenant_id == submitted_job.tenant_id
+        assert running_job.created_at == submitted_job.created_at
+        # Original should be unchanged (immutability)
+        assert submitted_job.status == JobStatus.SUBMITTED
     
-    def test_retrying_to_running_transition(self, base_job):
-        """Should allow transition from retrying to running."""
-        # Set up retrying status
-        base_job._status = JobStatus.RETRYING  # Direct assignment for test setup
-        old_updated_at = base_job.updated_at
+    def test_running_to_completed_transition(self, submitted_job):
+        """Should allow transition from RUNNING to COMPLETED."""
+        running_job = submitted_job.start()
+        completed_job = running_job.complete()
         
-        base_job.start_processing()
-        
-        assert base_job.status == JobStatus.RUNNING
-        assert base_job.updated_at > old_updated_at
+        assert completed_job.status == JobStatus.COMPLETED
+        assert completed_job.id == submitted_job.id
+        # Original instances unchanged
+        assert running_job.status == JobStatus.RUNNING
+        assert submitted_job.status == JobStatus.SUBMITTED
     
-    def test_running_to_succeeded_transition(self, base_job):
-        """Should allow transition from running to succeeded."""
-        base_job._status = JobStatus.RUNNING  # Direct assignment for test setup
-        old_updated_at = base_job.updated_at
+    def test_running_to_failed_transition(self, submitted_job):
+        """Should allow transition from RUNNING to FAILED."""
+        running_job = submitted_job.start()
+        failed_job = running_job.fail()
         
-        counters = {"errors": 2, "warnings": 5, "total": 100}
-        base_job.mark_succeeded(counters)
-        
-        assert base_job.status == JobStatus.SUCCEEDED
-        assert base_job.counters.errors == 2
-        assert base_job.counters.warnings == 5
-        assert base_job.counters.total == 100
-        assert base_job.updated_at > old_updated_at
+        assert failed_job.status == JobStatus.FAILED
+        assert failed_job.id == submitted_job.id
+        # Original instances unchanged
+        assert running_job.status == JobStatus.RUNNING
     
-    def test_running_to_failed_transition(self, base_job):
-        """Should allow transition from running to failed."""
-        base_job._status = JobStatus.RUNNING  # Direct assignment for test setup
-        old_updated_at = base_job.updated_at
+    def test_failed_to_retrying_transition(self, submitted_job):
+        """Should allow transition from FAILED to RETRYING."""
+        running_job = submitted_job.start()
+        failed_job = running_job.fail()
+        retrying_job = failed_job.retry()
         
-        base_job.mark_failed("Processing error occurred")
-        
-        assert base_job.status == JobStatus.FAILED
-        assert base_job.error_message == "Processing error occurred"
-        assert base_job.updated_at > old_updated_at
+        assert retrying_job.status == JobStatus.RETRYING
+        assert retrying_job.id == submitted_job.id
+        # Original instances unchanged
+        assert failed_job.status == JobStatus.FAILED
     
-    def test_running_to_expired_transition(self, base_job):
-        """Should allow transition from running to expired."""
-        base_job._status = JobStatus.RUNNING  # Direct assignment for test setup
-        old_updated_at = base_job.updated_at
+    def test_retrying_to_running_transition(self, submitted_job):
+        """Should allow transition from RETRYING to RUNNING."""
+        # Create full cycle: submitted -> running -> failed -> retrying -> running
+        running_job = submitted_job.start()
+        failed_job = running_job.fail()
+        retrying_job = failed_job.retry()
+        running_again_job = retrying_job.start()
         
-        base_job.mark_expired()
-        
-        assert base_job.status == JobStatus.EXPIRED
-        assert base_job.updated_at > old_updated_at
+        assert running_again_job.status == JobStatus.RUNNING
+        assert running_again_job.id == submitted_job.id
+        # All intermediate instances unchanged
+        assert retrying_job.status == JobStatus.RETRYING
+        assert failed_job.status == JobStatus.FAILED
     
-    def test_running_to_cancelled_transition(self, base_job):
-        """Should allow transition from running to cancelled."""
-        base_job._status = JobStatus.RUNNING  # Direct assignment for test setup
-        old_updated_at = base_job.updated_at
+    def test_complete_retry_cycle(self, submitted_job):
+        """Should support complete retry cycle ending in success."""
+        # First attempt fails
+        job = submitted_job.start()
+        job = job.fail()
         
-        base_job.cancel("User requested cancellation")
+        # Retry and succeed
+        job = job.retry()
+        job = job.start()
+        job = job.complete()
         
-        assert base_job.status == JobStatus.CANCELLED
-        assert base_job.error_message == "User requested cancellation"
-        assert base_job.updated_at > old_updated_at
-    
-    def test_failed_to_retrying_transition(self, base_job):
-        """Should allow transition from failed to retrying."""
-        base_job._status = JobStatus.FAILED  # Direct assignment for test setup
-        old_updated_at = base_job.updated_at
-        
-        base_job.retry()
-        
-        assert base_job.status == JobStatus.RETRYING
-        assert base_job.updated_at > old_updated_at
-    
-    def test_expired_to_retrying_transition(self, base_job):
-        """Should allow transition from expired to retrying."""
-        base_job._status = JobStatus.EXPIRED  # Direct assignment for test setup
-        old_updated_at = base_job.updated_at
-        
-        base_job.retry()
-        
-        assert base_job.status == JobStatus.RETRYING
-        assert base_job.updated_at > old_updated_at
+        assert job.status == JobStatus.COMPLETED
+        assert job.id == submitted_job.id
 
 
 class TestInvalidTransitions:
     """Test invalid job status transitions."""
     
-    @pytest.fixture
-    def base_job(self):
-        """Create base job for invalid transition tests."""
-        return Job(
-            id=str(uuid4()),
-            tenant_id=TenantId("tenant_123"),
-            seller_id="seller_456",
-            channel="mercado_livre",
-            job_type="csv_validation",
-            status=JobStatus.QUEUED,
-            file_ref="s3://bucket/file.csv",
-            rules_profile_id="ml@1.2.3",
-            idempotency_key=IdempotencyKey("test-key-123"),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
-        )
+    def test_submitted_to_completed_invalid(self):
+        """Should reject direct transition from SUBMITTED to COMPLETED."""
+        job = Job.create(TenantId("tenant_123"))
+        
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            job.complete()
+        
+        assert exc_info.value.from_state == "submitted"
+        assert exc_info.value.to_state == "completed"
     
-    def test_succeeded_to_any_status_invalid(self, base_job):
-        """Should reject transitions from succeeded status."""
-        base_job._status = JobStatus.SUCCEEDED  # Direct assignment for test setup
+    def test_submitted_to_failed_invalid(self):
+        """Should reject direct transition from SUBMITTED to FAILED."""
+        job = Job.create(TenantId("tenant_123"))
         
-        with pytest.raises(InvalidTransition, match="Cannot transition from succeeded"):
-            base_job.start_processing()
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            job.fail()
         
-        with pytest.raises(InvalidTransition, match="Cannot transition from succeeded"):
-            base_job.mark_failed("Some error")
-        
-        with pytest.raises(InvalidTransition, match="Cannot transition from succeeded"):
-            base_job.retry()
+        assert exc_info.value.from_state == "submitted"
+        assert exc_info.value.to_state == "failed"
     
-    def test_cancelled_to_any_status_invalid(self, base_job):
-        """Should reject transitions from cancelled status."""
-        base_job._status = JobStatus.CANCELLED  # Direct assignment for test setup
+    def test_submitted_to_retrying_invalid(self):
+        """Should reject transition from SUBMITTED to RETRYING."""
+        job = Job.create(TenantId("tenant_123"))
         
-        with pytest.raises(InvalidTransition, match="Cannot transition from cancelled"):
-            base_job.start_processing()
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            job.retry()
         
-        with pytest.raises(InvalidTransition, match="Cannot transition from cancelled"):
-            base_job.mark_failed("Some error")
+        assert exc_info.value.from_state == "submitted"
+        assert exc_info.value.to_state == "retrying"
+    
+    def test_completed_to_any_transition_invalid(self):
+        """Should reject any transition from COMPLETED state."""
+        job = Job.create(TenantId("tenant_123"))
+        job = job.start()
+        completed_job = job.complete()
         
-        with pytest.raises(InvalidTransition, match="Cannot transition from cancelled"):
-            base_job.retry()
-    
-    def test_queued_to_succeeded_invalid(self, base_job):
-        """Should reject direct transition from queued to succeeded."""
-        with pytest.raises(InvalidTransition, match="Cannot transition from queued to succeeded"):
-            base_job.mark_succeeded({"errors": 0, "warnings": 0, "total": 100})
-    
-    def test_queued_to_failed_invalid(self, base_job):
-        """Should reject direct transition from queued to failed."""
-        with pytest.raises(InvalidTransition, match="Cannot transition from queued to failed"):
-            base_job.mark_failed("Some error")
-    
-    def test_succeeded_to_retrying_invalid(self, base_job):
-        """Should reject transition from succeeded to retrying."""
-        base_job._status = JobStatus.SUCCEEDED  # Direct assignment for test setup
+        # Cannot start
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            completed_job.start()
+        assert exc_info.value.from_state == "completed"
         
-        with pytest.raises(InvalidTransition, match="Cannot retry job in status succeeded"):
-            base_job.retry()
-    
-    def test_queued_to_retrying_invalid(self, base_job):
-        """Should reject transition from queued to retrying."""
-        with pytest.raises(InvalidTransition, match="Cannot retry job in status queued"):
-            base_job.retry()
-    
-    def test_running_to_retrying_invalid(self, base_job):
-        """Should reject direct transition from running to retrying."""
-        base_job._status = JobStatus.RUNNING  # Direct assignment for test setup
+        # Cannot complete again
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            completed_job.complete()
+        assert exc_info.value.from_state == "completed"
         
-        with pytest.raises(InvalidTransition, match="Cannot retry job in status running"):
-            base_job.retry()
+        # Cannot fail
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            completed_job.fail()
+        assert exc_info.value.from_state == "completed"
+        
+        # Cannot retry
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            completed_job.retry()
+        assert exc_info.value.from_state == "completed"
+    
+    def test_failed_to_running_invalid(self):
+        """Should reject direct transition from FAILED to RUNNING."""
+        job = Job.create(TenantId("tenant_123"))
+        job = job.start()
+        failed_job = job.fail()
+        
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            failed_job.start()
+        
+        assert exc_info.value.from_state == "failed"
+        assert exc_info.value.to_state == "running"
+    
+    def test_failed_to_completed_invalid(self):
+        """Should reject transition from FAILED to COMPLETED."""
+        job = Job.create(TenantId("tenant_123"))
+        job = job.start()
+        failed_job = job.fail()
+        
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            failed_job.complete()
+        
+        assert exc_info.value.from_state == "failed"
+        assert exc_info.value.to_state == "completed"
+    
+    def test_running_to_retrying_invalid(self):
+        """Should reject direct transition from RUNNING to RETRYING."""
+        job = Job.create(TenantId("tenant_123"))
+        running_job = job.start()
+        
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            running_job.retry()
+        
+        assert exc_info.value.from_state == "running"
+        assert exc_info.value.to_state == "retrying"
+    
+    def test_retrying_to_completed_invalid(self):
+        """Should reject direct transition from RETRYING to COMPLETED."""
+        job = Job.create(TenantId("tenant_123"))
+        job = job.start()
+        job = job.fail()
+        retrying_job = job.retry()
+        
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            retrying_job.complete()
+        
+        assert exc_info.value.from_state == "retrying"
+        assert exc_info.value.to_state == "completed"
+    
+    def test_retrying_to_failed_invalid(self):
+        """Should reject direct transition from RETRYING to FAILED."""
+        job = Job.create(TenantId("tenant_123"))
+        job = job.start()
+        job = job.fail()
+        retrying_job = job.retry()
+        
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            retrying_job.fail()
+        
+        assert exc_info.value.from_state == "retrying"
+        assert exc_info.value.to_state == "failed"
 
 
-class TestJobInvariants:
-    """Test job business invariants."""
+class TestJobHelperMethods:
+    """Test Job helper methods."""
     
-    def test_updated_at_increases_on_valid_transitions(self):
-        """updated_at should increase on every valid transition."""
-        job = Job(
-            id=str(uuid4()),
-            tenant_id=TenantId("tenant_123"),
-            seller_id="seller_456",
-            channel="mercado_livre",
-            job_type="csv_validation",
-            status=JobStatus.QUEUED,
-            file_ref="s3://bucket/file.csv",
-            rules_profile_id="ml@1.2.3",
-            idempotency_key=IdempotencyKey("test-key-123"),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
-        )
+    def test_is_terminal_for_completed(self):
+        """Should identify COMPLETED as terminal state."""
+        job = Job.create(TenantId("tenant_123"))
+        job = job.start()
+        completed_job = job.complete()
         
-        # Track timestamps through transitions
-        timestamps = [job.updated_at]
-        
-        # queued -> running
-        job.start_processing()
-        timestamps.append(job.updated_at)
-        
-        # running -> failed
-        job.mark_failed("Test error")
-        timestamps.append(job.updated_at)
-        
-        # failed -> retrying
-        job.retry()
-        timestamps.append(job.updated_at)
-        
-        # Verify timestamps are strictly increasing
-        for i in range(1, len(timestamps)):
-            assert timestamps[i] > timestamps[i-1], f"Timestamp {i} should be greater than {i-1}"
+        assert completed_job.is_terminal() is True
     
-    def test_counters_only_set_on_success(self):
-        """Counters should only be updated on successful completion."""
-        job = Job(
-            id=str(uuid4()),
-            tenant_id=TenantId("tenant_123"),
-            seller_id="seller_456",
-            channel="mercado_livre",
-            job_type="csv_validation",
-            status=JobStatus.RUNNING,
-            file_ref="s3://bucket/file.csv",
-            rules_profile_id="ml@1.2.3",
-            idempotency_key=IdempotencyKey("test-key-123"),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
-        )
+    def test_is_terminal_for_failed(self):
+        """Should identify FAILED as terminal state."""
+        job = Job.create(TenantId("tenant_123"))
+        job = job.start()
+        failed_job = job.fail()
         
-        # Initially zero
-        assert job.counters.errors == 0
-        assert job.counters.warnings == 0
-        assert job.counters.total == 0
-        
-        # Fail the job - counters should remain zero
-        job.mark_failed("Some error")
-        assert job.counters.errors == 0
-        assert job.counters.warnings == 0
-        assert job.counters.total == 0
-        
-        # Retry and succeed - now counters should be set
-        job.retry()
-        job.start_processing()
-        job.mark_succeeded({"errors": 5, "warnings": 10, "total": 200})
-        
-        assert job.counters.errors == 5
-        assert job.counters.warnings == 10
-        assert job.counters.total == 200
+        assert failed_job.is_terminal() is True
     
-    def test_error_message_set_on_failure_and_cancellation(self):
-        """Error message should be set on failure and cancellation."""
-        job = Job(
-            id=str(uuid4()),
-            tenant_id=TenantId("tenant_123"),
-            seller_id="seller_456",
-            channel="mercado_livre",
-            job_type="csv_validation",
-            status=JobStatus.RUNNING,
-            file_ref="s3://bucket/file.csv",
-            rules_profile_id="ml@1.2.3",
-            idempotency_key=IdempotencyKey("test-key-123"),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
-        )
+    def test_is_terminal_for_non_terminal_states(self):
+        """Should identify non-terminal states correctly."""
+        job = Job.create(TenantId("tenant_123"))
         
-        # Initially no error message
-        assert job.error_message is None
+        # SUBMITTED
+        assert job.is_terminal() is False
         
-        # Mark as failed
-        job.mark_failed("Processing failed")
-        assert job.error_message == "Processing failed"
+        # RUNNING
+        running_job = job.start()
+        assert running_job.is_terminal() is False
         
-        # Reset for cancellation test
-        job.retry()
-        job.start_processing()
+        # RETRYING
+        failed_job = running_job.fail()
+        retrying_job = failed_job.retry()
+        assert retrying_job.is_terminal() is False
+    
+    def test_can_retry_for_failed(self):
+        """Should allow retry for FAILED state."""
+        job = Job.create(TenantId("tenant_123"))
+        job = job.start()
+        failed_job = job.fail()
         
-        # Cancel the job
-        job.cancel("User cancelled")
-        assert job.error_message == "User cancelled"
+        assert failed_job.can_retry() is True
+    
+    def test_can_retry_for_non_failed_states(self):
+        """Should not allow retry for non-FAILED states."""
+        job = Job.create(TenantId("tenant_123"))
+        
+        # SUBMITTED
+        assert job.can_retry() is False
+        
+        # RUNNING
+        running_job = job.start()
+        assert running_job.can_retry() is False
+        
+        # COMPLETED
+        completed_job = running_job.complete()
+        assert completed_job.can_retry() is False
+        
+        # RETRYING
+        failed_job = running_job.fail()
+        retrying_job = failed_job.retry()
+        assert retrying_job.can_retry() is False
+    
+    def test_string_representation(self):
+        """Should have readable string representation."""
+        tenant_id = TenantId("tenant_123")
+        job = Job.create(tenant_id)
+        
+        str_repr = str(job)
+        assert "Job" in str_repr
+        assert str(job.id) in str_repr
+        assert str(tenant_id) in str_repr
+        assert "submitted" in str_repr
+
+
+class TestJobImmutability:
+    """Test that Job maintains immutability."""
+    
+    def test_transitions_return_new_instances(self):
+        """Should return new instances on state transitions."""
+        original = Job.create(TenantId("tenant_123"))
+        
+        # Each transition should return a different instance
+        running = original.start()
+        assert running is not original
+        assert id(running) != id(original)
+        
+        completed = running.complete()
+        assert completed is not running
+        assert completed is not original
+        
+        # Create another path
+        running2 = original.start()
+        failed = running2.fail()
+        retrying = failed.retry()
+        
+        # All should be different instances
+        instances = [original, running, completed, running2, failed, retrying]
+        instance_ids = [id(inst) for inst in instances]
+        assert len(set(instance_ids)) == len(instance_ids)  # All unique
+    
+    def test_original_unchanged_after_transitions(self):
+        """Should keep original instance unchanged after transitions."""
+        original = Job.create(TenantId("tenant_123"))
+        original_status = original.status
+        original_id = original.id
+        original_tenant = original.tenant_id
+        original_created = original.created_at
+        
+        # Perform multiple transitions
+        running = original.start()
+        completed = running.complete()
+        
+        # Original should be completely unchanged
+        assert original.status == original_status
+        assert original.id == original_id
+        assert original.tenant_id == original_tenant
+        assert original.created_at == original_created
+
+
+class TestDomainErrors:
+    """Test domain error handling."""
+    
+    def test_invalid_state_transition_error_message(self):
+        """Should have clear error messages for invalid transitions."""
+        job = Job.create(TenantId("tenant_123"))
+        
+        with pytest.raises(InvalidStateTransitionError) as exc_info:
+            job.complete()
+        
+        error = exc_info.value
+        assert "Invalid state transition from submitted to completed" in str(error)
+        assert error.from_state == "submitted"
+        assert error.to_state == "completed"
+    
+    def test_domain_error_for_naive_datetime(self):
+        """Should raise DomainError for naive datetime."""
+        job_id = JobId(uuid4())
+        tenant_id = TenantId("tenant_123")
+        naive_datetime = datetime.now()  # No timezone
+        
+        with pytest.raises(DomainError) as exc_info:
+            Job(
+                id=job_id,
+                tenant_id=tenant_id,
+                status=JobStatus.SUBMITTED,
+                created_at=naive_datetime
+            )
+        
+        assert "created_at must be timezone-aware" in str(exc_info.value)
