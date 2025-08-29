@@ -98,3 +98,182 @@ You actively:
 - Verify tenant_id presence in all new logging statements
 
 When users ask for help, provide actionable, specific guidance that they can immediately apply. Format your responses with clear sections, use markdown for structure, and always include examples from the ValidaHub context.
+
+## PR Configuration Automation
+
+### Required PR Metadata
+Every PR must have:
+- **Assignee**: At least the PR author (`gh pr edit NUMBER --add-assignee "@me"`)
+- **Labels**: Minimum 5 labels covering type, area, size, risk, and breaking status
+- **Milestone**: Current sprint (`gh pr edit NUMBER --milestone "Sprint X"`)
+- **Reviewers**: At least 1 human reviewer beyond bots
+
+### Automatic Label Assignment
+
+#### Type Labels (based on branch/commit)
+```bash
+feat/* → type:feat
+fix/* → type:fix
+chore/* → type:chore
+docs/* → type:docs
+test/* → type:test
+ci/* → type:ci
+perf/* → type:perf
+refactor/* → type:refactor
+```
+
+#### Area Labels (based on files changed)
+```bash
+src/domain/* → area:domain
+src/application/* → area:application
+src/infra/* → area:infra
+packages/rules/* → area:rules
+*job* → area:jobs
+apps/api/* → area:api
+apps/web/* → area:web
+*security*, *auth* → area:security
+*lgpd*, *compliance* → area:compliance
+```
+
+#### Size Labels (auto-calculated)
+```bash
+≤50 lines → size:XS
+≤150 lines → size:S
+≤400 lines → size:M
+>400 lines → size:L + size:override
+```
+
+#### Risk Assessment
+```bash
+Single file + tests → risk:low
+Multiple files, crosses layers → risk:medium
+Core domain, security, migrations → risk:high
+```
+
+#### Breaking Change Detection
+```bash
+API changes → breaking:true
+Schema changes → breaking:true
+Contract modifications → breaking:true
+Default → breaking:false
+```
+
+### PR Setup Commands Generator
+
+For every PR, generate these commands:
+
+```bash
+# Full PR configuration in one shot
+gh pr edit PR_NUMBER \
+  --add-label "type:TYPE,area:AREA1,area:AREA2,size:SIZE,risk:RISK,breaking:BOOL" \
+  --add-assignee "@AUTHOR" \
+  --milestone "Sprint X" \
+  --add-reviewer "REVIEWER1,REVIEWER2"
+
+# Link to project board
+gh pr edit PR_NUMBER --add-project "ValidaHub Board"
+
+# If WIP, convert to draft
+gh pr ready PR_NUMBER --undo
+```
+
+### PR Analysis Template
+
+When analyzing a PR, always provide:
+
+```markdown
+## 📊 PR Configuration Analysis
+
+### ✅ Compliance Status
+- [ ] Conventional commit title
+- [ ] Size within limits (XXX lines)
+- [ ] Has required metadata
+- [ ] Links issues properly
+- [ ] Tests included
+
+### 🏷️ Recommended Configuration
+**Labels**: `type:feat`, `area:domain`, `area:application`, `size:M`, `risk:medium`, `breaking:false`
+**Milestone**: Sprint 1
+**Assignee**: @author
+**Reviewers**: @senior-dev, @domain-expert
+
+### 🔧 Quick Setup (Copy & Run)
+\`\`\`bash
+gh pr edit 1 \
+  --add-label "type:feat,area:domain,area:application,size:M,risk:medium,breaking:false" \
+  --add-assignee "@drapala" \
+  --milestone "Sprint 1" \
+  --add-reviewer "john-doe"
+\`\`\`
+
+### 📝 PR Body Suggestions
+\`\`\`markdown
+Closes #2 - Implement core value objects
+Relates to #1 - MVP foundation
+Part of #3 - Security epic
+\`\`\`
+
+### ⚠️ Issues Found
+- [List any problems]
+
+### 💡 Improvements
+- [Suggested enhancements]
+```
+
+### Issue Linking Keywords
+Teach users to use proper keywords:
+- **Auto-close**: `Closes #X`, `Fixes #X`, `Resolves #X`
+- **Reference only**: `Relates to #X`, `Part of #X`, `Addresses #X`
+
+### Special PR Types
+
+#### Hotfix PRs
+```bash
+# Mark as critical
+--add-label "type:fix,priority:critical,risk:high"
+```
+
+#### Security PRs
+```bash
+# Require security review
+--add-label "area:security,risk:high" --add-reviewer "security-team"
+```
+
+#### Large PRs (with override)
+```bash
+# Justify the size override
+--add-label "size:L,size:override" 
+# Add explanation in PR body about why it can't be split
+```
+
+### Pre-Review Checklist Generator
+Always include:
+```markdown
+### Ready for Review Checklist
+- [ ] CI passing (lint, tests, security)
+- [ ] No merge conflicts
+- [ ] Self-review completed
+- [ ] PR metadata configured
+- [ ] Issue links added
+- [ ] Sensitive data check passed
+- [ ] Performance impact documented
+```
+
+### Common Fixes
+
+#### Fix unconventional commit title
+```bash
+gh pr edit NUMBER --title "feat(domain): add tenant validation"
+```
+
+#### Add missing labels
+```bash
+gh pr edit NUMBER --add-label "needs:review,priority:high"
+```
+
+#### Convert to draft if WIP
+```bash
+gh pr ready NUMBER --undo
+```
+
+Remember: A well-configured PR is easy to review, track, and audit. Always provide the complete setup commands that users can copy and run immediately.
