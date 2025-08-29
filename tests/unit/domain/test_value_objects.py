@@ -1,8 +1,10 @@
 """Test value objects."""
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, assume
 from dataclasses import FrozenInstanceError
+import secrets
+import string
 
 from src.domain.value_objects import TenantId, IdempotencyKey
 
@@ -265,3 +267,179 @@ class TestIdempotencyKey:
         """Property test: invalid idempotency keys should be rejected."""
         with pytest.raises(ValueError, match="Invalid idempotency key format"):
             IdempotencyKey(value)
+
+    # Additional comprehensive property tests using Hypothesis
+    
+    @given(st.text(
+        min_size=16,
+        max_size=128, 
+        alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    ).filter(lambda x: x[0] not in "=+-@"))
+    def test_property_valid_keys_roundtrip(self, key_string):
+        """Property test: valid keys should satisfy IdempotencyKey(s).value == s."""
+        key = IdempotencyKey(key_string)
+        assert key.value == key_string
+    
+    @given(
+        st.integers(min_value=0, max_value=15),
+        st.text(
+            min_size=0,
+            max_size=15,
+            alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        ).filter(lambda x: not x or x[0] not in "=+-@")
+    )
+    def test_property_length_too_short(self, target_length, base_string):
+        """Property test: keys shorter than 16 chars should raise ValueError."""
+        # Ensure the string is exactly the target length
+        if target_length == 0:
+            key_string = ""
+        else:
+            key_string = base_string[:target_length].ljust(target_length, "A")
+            # Ensure first char is not forbidden if non-empty
+            if key_string and key_string[0] in "=+-@":
+                key_string = "A" + key_string[1:]
+        
+        assume(len(key_string) < 16)  # Only test strings shorter than 16
+        
+        with pytest.raises(ValueError, match="Invalid idempotency key format"):
+            IdempotencyKey(key_string)
+    
+    @given(
+        st.integers(min_value=129, max_value=200),
+        st.text(
+            alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        ).filter(lambda x: not x or x[0] not in "=+-@")
+    )
+    def test_property_length_too_long(self, target_length, base_string):
+        """Property test: keys longer than 128 chars should raise ValueError."""
+        # Create a string of exactly the target length
+        key_string = ("A" + base_string).ljust(target_length, "B")[:target_length]
+        
+        assume(len(key_string) > 128)  # Only test strings longer than 128
+        
+        with pytest.raises(ValueError, match="Invalid idempotency key format"):
+            IdempotencyKey(key_string)
+    
+    @given(
+        st.sampled_from(["=", "+", "-", "@"]),
+        st.text(
+            min_size=15, 
+            max_size=127, 
+            alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        )
+    )
+    def test_property_forbidden_first_chars(self, first_char, suffix):
+        """Property test: keys starting with forbidden chars should raise ValueError."""
+        key_string = first_char + suffix
+        
+        with pytest.raises(ValueError, match="Invalid idempotency key format"):
+            IdempotencyKey(key_string)
+    
+    @given(st.text(min_size=16, max_size=128))
+    def test_property_invalid_chars_outside_alphabet(self, text):
+        """Property test: keys with chars outside alphabet should raise ValueError."""
+        # Only test strings that actually contain invalid characters
+        valid_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        assume(not all(c in valid_alphabet for c in text))
+        
+        with pytest.raises(ValueError, match="Invalid idempotency key format"):
+            IdempotencyKey(text)
+    
+    @given(st.text(
+        min_size=17,  # At least 16 + 1 char after
+        max_size=128,
+        alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    ).filter(lambda x: 
+        # Ensure we have hyphens not at start and first char is safe
+        any(c in "-" for c in x[1:]) and 
+        x[0] not in "=+-@"
+    ))
+    def test_property_forbidden_chars_allowed_not_at_start(self, key_string):
+        """Property test: hyphen allowed when not at start position."""
+        # This should succeed - hyphen is allowed, just not at start
+        key = IdempotencyKey(key_string)
+        assert key.value == key_string
+    
+    def test_secure_key_generation_never_starts_with_forbidden_chars(self):
+        """Test that securely generated keys never start with forbidden characters."""
+        # Test the concept of secure generation even if method doesn't exist yet
+        alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        forbidden_first_chars = "=+-@"
+        
+        for _ in range(100):  # Test multiple generations
+            # Simulate secure key generation using Python's secrets module
+            # This is what a secure generation method should do
+            safe_first_chars = [c for c in alphabet if c not in forbidden_first_chars]
+            
+            # Generate a 32-character key (within valid range)
+            first_char = secrets.choice(safe_first_chars)
+            remaining_chars = ''.join(secrets.choice(alphabet) for _ in range(31))
+            generated_key = first_char + remaining_chars
+            
+            # Verify it's valid
+            key = IdempotencyKey(generated_key)
+            assert key.value == generated_key
+            assert len(key.value) == 32
+            assert key.value[0] not in forbidden_first_chars
+    
+    @given(st.lists(
+        st.text(
+            min_size=16,
+            max_size=128, 
+            alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+        ).filter(lambda x: x[0] not in "=+-@"),
+        min_size=2,
+        max_size=10
+    ))
+    def test_property_equality_consistency(self, key_strings):
+        """Property test: equal keys should have equal hashes and string representations."""
+        keys = [IdempotencyKey(s) for s in key_strings]
+        
+        for i, key1 in enumerate(keys):
+            for j, key2 in enumerate(keys):
+                if i == j:
+                    # Same key should equal itself
+                    assert key1 == key2
+                    assert hash(key1) == hash(key2)
+                    assert str(key1) == str(key2)
+                elif key_strings[i] == key_strings[j]:
+                    # Same string should create equal keys
+                    assert key1 == key2
+                    assert hash(key1) == hash(key2)
+                    assert str(key1) == str(key2)
+    
+    @given(st.text(
+        min_size=16,
+        max_size=128, 
+        alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    ).filter(lambda x: x[0] not in "=+-@"))
+    def test_property_immutability(self, key_string):
+        """Property test: IdempotencyKey instances should be immutable."""
+        key = IdempotencyKey(key_string)
+        
+        # Should not be able to modify the value
+        with pytest.raises(FrozenInstanceError):
+            key.value = "different_value_1234567890"
+    
+    @given(st.text(
+        min_size=16,
+        max_size=128, 
+        alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    ).filter(lambda x: x[0] not in "=+-@"))
+    def test_property_string_representations(self, key_string):
+        """Property test: string representations should be consistent."""
+        key = IdempotencyKey(key_string)
+        
+        assert str(key) == key_string
+        assert repr(key) == f"IdempotencyKey('{key_string}')"
+    
+    @given(
+        st.sampled_from(["=", "+", "-", "@"]),
+        st.text(min_size=15, max_size=127, alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+    )
+    def test_property_csv_injection_comprehensive(self, forbidden_char, suffix):
+        """Property test: comprehensive CSV injection protection."""
+        malicious_key = forbidden_char + suffix
+        
+        with pytest.raises(ValueError, match="Invalid idempotency key format"):
+            IdempotencyKey(malicious_key)
