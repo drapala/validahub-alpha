@@ -17,6 +17,9 @@ except ImportError:
     def get_logger(name: str):
         return logging.getLogger(name)
     
+    class SecurityEventType:
+        DANGEROUS_FILE = "dangerous_file"
+
     class SecurityLogger:
         def __init__(self, name: str):
             self.logger = logging.getLogger(name)
@@ -26,9 +29,6 @@ except ImportError:
         
         def log_security_event(self, event_type, message, **kwargs):
             self.logger.warning(f"Security event: {message}", extra=kwargs)
-        
-        class SecurityEventType:
-            DANGEROUS_FILE = "dangerous_file"
 
 
 def _has_control_or_format(s: str) -> bool:
@@ -250,7 +250,7 @@ class FileReference:
         for bad_ext in _DENY_EXT:
             if low_key.endswith(bad_ext):
                 security_logger.log_security_event(
-                    security_logger.SecurityEventType.DANGEROUS_FILE,
+                    SecurityEventType.DANGEROUS_FILE,
                     "Dangerous file extension blocked",
                     severity="ERROR",
                     extension=bad_ext,

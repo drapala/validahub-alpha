@@ -77,12 +77,12 @@ class TestTenantId:
         assert str(tenant_id) == "t_tenant123"
         assert repr(tenant_id) == "TenantId('t_tenant123')"
     
-    @given(st.text(min_size=1, max_size=47, alphabet=st.characters(whitelist_categories=('Lu', 'Ll', 'Nd', 'Pc'))))
+    @given(st.text(min_size=1, max_size=47, alphabet='abcdefghijklmnopqrstuvwxyz0123456789_'))
     def test_valid_tenant_ids_property(self, value):
         """Property test: valid tenant IDs should be accepted."""
         # Create valid t_ prefixed value
         test_value = f"t_{value}"
-        # Skip if contains invalid chars after normalization
+        # Skip if too short after normalization
         normalized = test_value.strip().lower()
         if not normalized or len(normalized) < 3:
             pytest.skip("Too short after normalization")

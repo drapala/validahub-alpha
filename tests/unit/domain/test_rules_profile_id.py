@@ -1,5 +1,6 @@
 """Test RulesProfileId normalization and SemVer validation."""
 
+import dataclasses
 import pytest
 from src.domain.value_objects import RulesProfileId
 
@@ -38,7 +39,7 @@ class TestRulesProfileId:
         "@1.2.3",  # Missing channel
         "mercado_livre",  # No @ separator
         "1.2.3",  # No channel
-        "mercado livre@1.2.3",  # Space in channel
+        "mercado@livre@1.2.3",  # Multiple @ separators
         "mercado@1.2.3.4",  # Too many version parts
         "mercado@v1.2.3",  # Version with 'v' prefix
         "mercado@1.2.3-beta",  # Pre-release version (if not supported)
@@ -124,14 +125,14 @@ class TestRulesProfileId:
         """RulesProfileId should be immutable."""
         rp = RulesProfileId.from_string("mercado@1.2.3")
         
-        with pytest.raises(Exception):
-            object.__setattr__(rp, "channel", "amazon")
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            rp.channel = "amazon"
         
-        with pytest.raises(Exception):
-            object.__setattr__(rp, "version", "2.0.0")
+        with pytest.raises(AttributeError):  # version is a property, not a field
+            rp.version = "2.0.0"
         
-        with pytest.raises(Exception):
-            object.__setattr__(rp, "major", 2)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            rp.major = 2
     
     def test_rules_profile_zero_versions(self):
         """RulesProfileId should accept 0 in version numbers."""

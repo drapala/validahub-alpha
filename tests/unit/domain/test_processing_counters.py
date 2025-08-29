@@ -1,5 +1,6 @@
 """Test ProcessingCounters invariants and coherence."""
 
+import dataclasses
 import pytest
 from src.domain.value_objects import ProcessingCounters
 
@@ -155,17 +156,17 @@ class TestProcessingCounters:
         """ProcessingCounters should be immutable."""
         counters = ProcessingCounters(total=100, processed=100, errors=5, warnings=10)
         
-        with pytest.raises(Exception):
-            object.__setattr__(counters, "total", 200)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            counters.total = 200
         
-        with pytest.raises(Exception):
-            object.__setattr__(counters, "processed", 50)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            counters.processed = 50
         
-        with pytest.raises(Exception):
-            object.__setattr__(counters, "errors", 10)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            counters.errors = 10
         
-        with pytest.raises(Exception):
-            object.__setattr__(counters, "warnings", 20)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            counters.warnings = 20
     
     def test_counters_equality(self):
         """ProcessingCounters should be equal if all values match."""

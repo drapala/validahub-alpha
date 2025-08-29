@@ -48,7 +48,7 @@ class TestIdempotencyKeySecurity:
     
     @pytest.mark.parametrize("invalid_input", [
         " " * 16,  # Only spaces
-        "a" * 7,  # Too short (7 chars)
+        "a" * 15,  # Too short (15 chars, minimum is 16)
         "a" * 129,  # Too long (129 chars)
         "abc def",  # Contains space
         "abc/def",  # Contains slash
@@ -112,17 +112,17 @@ class TestIdempotencyKeySecurity:
     
     def test_idempotency_key_boundary_lengths(self):
         """Test IdempotencyKey at exact boundary lengths."""
-        # Minimum valid: 8 chars (adjust based on your rules)
-        min_key = IdempotencyKey("a" * 8)
-        assert len(str(min_key)) == 8
+        # Minimum valid: 16 chars (current domain rule)
+        min_key = IdempotencyKey("a" * 16)
+        assert len(str(min_key)) == 16
         
         # Maximum valid: 128 chars
         max_key = IdempotencyKey("a" * 128)
         assert len(str(max_key)) == 128
         
-        # One under minimum: 7 chars
+        # One under minimum: 15 chars
         with pytest.raises(ValueError):
-            IdempotencyKey("a" * 7)
+            IdempotencyKey("a" * 15)
         
         # One over maximum: 129 chars
         with pytest.raises(ValueError):
@@ -130,10 +130,10 @@ class TestIdempotencyKeySecurity:
     
     def test_idempotency_key_case_sensitivity(self):
         """IdempotencyKey should preserve case (not normalize)."""
-        key = IdempotencyKey("AbC-123-XyZ")
-        assert str(key) == "AbC-123-XyZ"  # Case preserved
+        key = IdempotencyKey("AbC-123-XyZ-abc-def")
+        assert str(key) == "AbC-123-XyZ-abc-def"  # Case preserved
         
         # Different case means different key
-        key1 = IdempotencyKey("test-KEY-123")
-        key2 = IdempotencyKey("test-key-123")
+        key1 = IdempotencyKey("test-KEY-123-abc-def")
+        key2 = IdempotencyKey("test-key-123-abc-def")
         assert key1 != key2

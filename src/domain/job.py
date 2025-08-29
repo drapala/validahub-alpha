@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
-from domain.errors import DomainError, InvalidStateTransitionError
-from domain.value_objects import JobId, TenantId
+from src.domain.errors import DomainError, InvalidStateTransitionError
+from src.domain.value_objects import JobId, TenantId
 from shared.logging.security import AuditLogger, AuditEventType
 
 # Module-level audit logger for job lifecycle events
