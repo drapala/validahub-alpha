@@ -1,0 +1,148 @@
+name: PR Split Suggestion
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  suggest-split:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.additions + github.event.pull_request.deletions > 200
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Analyze PR for split suggestions
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const { additions, deletions } = pr;
+            const totalChanges = additions + deletions;
+            
+            // Get PR files
+            const files = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number
+            });
+            
+            // Categorize files by type for split suggestions
+            const categories = {
+              domain: [],
+              application: [],
+              infra: [],
+              tests: [],
+              docs: [],
+              contracts: [],
+              config: [],
+              migrations: []
+            };
+            
+            let totalFileChanges = 0;
+            
+            files.data.forEach(file => {
+              totalFileChanges += file.additions + file.deletions;
+              
+              if (file.filename.includes('/domain/')) {
+                categories.domain.push(file);
+              } else if (file.filename.includes('/application/')) {
+                categories.application.push(file);
+              } else if (file.filename.includes('/infra/')) {
+                categories.infra.push(file);
+              } else if (file.filename.includes('/tests/')) {
+                categories.tests.push(file);
+              } else if (file.filename.includes('/docs/')) {
+                categories.docs.push(file);
+              } else if (file.filename.includes('openapi') || file.filename.includes('.yaml')) {
+                categories.contracts.push(file);
+              } else if (file.filename.includes('migration') || file.filename.includes('alembic')) {
+                categories.migrations.push(file);
+              } else {
+                categories.config.push(file);
+              }
+            });
+            
+            if (totalChanges <= 200) return; // No suggestion needed
+            
+            let comment = `## 📊 PR Size Analysis & Split Suggestions\n\n`;
+            comment += `**Current size**: ${totalChanges} lines (${additions} additions, ${deletions} deletions)\n`;
+            comment += `**Recommendation**: This PR exceeds the soft limit of 200 lines.\n\n`;
+            
+            // Suggest splits based on ValidaHub conventions
+            const suggestions = [];
+            
+            if (categories.domain.length > 0 && categories.application.length > 0) {
+              const domainChanges = categories.domain.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+              const appChanges = categories.application.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+              
+              suggestions.push(
+                `**PR 1**: \`refactor(domain): extract domain layer changes\` (${domainChanges} lines)`
+              );
+              suggestions.push(
+                `**PR 2**: \`feat(application): implement use case layer\` (${appChanges} lines)`
+              );
+            }
+            
+            if (categories.contracts.length > 0) {
+              const contractChanges = categories.contracts.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+              suggestions.push(
+                `**PR 1**: \`feat(contracts): update OpenAPI specification\` (${contractChanges} lines)`
+              );
+            }
+            
+            if (categories.tests.length > 0) {
+              const testChanges = categories.tests.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+              suggestions.push(
+                `**PR N**: \`test(*): add comprehensive test coverage\` (${testChanges} lines)`
+              );
+            }
+            
+            if (categories.docs.length > 0) {
+              const docChanges = categories.docs.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+              suggestions.push(
+                `**PR N**: \`docs(*): update documentation\` (${docChanges} lines)`
+              );
+            }
+            
+            if (suggestions.length > 0) {
+              comment += `### 🔀 Suggested Split Strategy:\n\n`;
+              suggestions.forEach(suggestion => {
+                comment += `- ${suggestion}\n`;
+              });
+              
+              comment += `\n### 💡 Benefits of splitting:\n`;
+              comment += `- Easier code review and faster approval\n`;
+              comment += `- Reduced merge conflicts\n`;
+              comment += `- Better git history and rollback capabilities\n`;
+              comment += `- Follows ValidaHub's reviewability principles\n\n`;
+            }
+            
+            comment += `### 📋 File breakdown by category:\n\n`;
+            Object.entries(categories).forEach(([category, files]) => {
+              if (files.length > 0) {
+                const categoryChanges = files.reduce((sum, f) => sum + f.additions + f.deletions, 0);
+                comment += `**${category}** (${categoryChanges} lines):\n`;
+                files.forEach(file => {
+                  comment += `- ${file.filename} (+${file.additions}/-${file.deletions})\n`;
+                });
+                comment += `\n`;
+              }
+            });
+            
+            comment += `\n---\n`;
+            comment += `💡 To override size limits, add the \`size/override\` label with justification.\n`;
+            comment += `📖 See [CLAUDE.md section 5](CLAUDE.md#5-regras-de-pr-e-commits) for PR standards.`;
+            
+            // Post comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: comment
+            });

@@ -26,7 +26,7 @@
       "always",
       [
         "domain",
-        "application",
+        "application", 
         "infra",
         "api",
         "web",
@@ -42,7 +42,10 @@
         "ci",
         "logging",
         "app",
-        "tech-debt"
+        "tech-debt",
+        "pipeline",
+        "release",
+        "agents"
       ]
     ],
     "subject-case": [2, "never", ["upper-case", "pascal-case", "start-case"]],

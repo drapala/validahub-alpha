@@ -100,7 +100,7 @@ jobs:
             COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s (%h)" --no-merges)
           fi
           
-          # Group commits by type
+          # Group commits by type following ValidaHub conventional commits
           cat > RELEASE_NOTES.md << EOF
           # Release v${{ steps.version.outputs.next }}
           
@@ -119,11 +119,25 @@ jobs:
           echo "### 🐛 Bug Fixes" >> RELEASE_NOTES.md
           echo "$COMMITS" | grep -E "^fix(\(.*\))?:" | sed 's/^fix(\(.*\))://' | sed 's/^fix://' | sed 's/^/- /' >> RELEASE_NOTES.md || echo "- No bug fixes" >> RELEASE_NOTES.md
           
-          # Breaking Changes
+          # Breaking Changes (ValidaHub uses ! syntax)
           if echo "$COMMITS" | grep -q "!:"; then
             echo "" >> RELEASE_NOTES.md
             echo "### 💥 Breaking Changes" >> RELEASE_NOTES.md
             echo "$COMMITS" | grep "!:" | sed 's/^/- /' >> RELEASE_NOTES.md
+          fi
+          
+          # Rules and Contracts (ValidaHub specific)
+          if echo "$COMMITS" | grep -qE "^(rules|contracts)"; then
+            echo "" >> RELEASE_NOTES.md
+            echo "### 📋 Rules & Contracts" >> RELEASE_NOTES.md
+            echo "$COMMITS" | grep -E "^(rules|contracts)" | sed 's/^[a-z]*(\(.*\))://' | sed 's/^[a-z]*://' | sed 's/^/- /' >> RELEASE_NOTES.md
+          fi
+          
+          # Telemetry
+          if echo "$COMMITS" | grep -q "^telemetry"; then
+            echo "" >> RELEASE_NOTES.md
+            echo "### 📊 Telemetry & Analytics" >> RELEASE_NOTES.md
+            echo "$COMMITS" | grep "^telemetry" | sed 's/^telemetry(\(.*\))://' | sed 's/^telemetry://' | sed 's/^/- /' >> RELEASE_NOTES.md
           fi
           
           # Performance

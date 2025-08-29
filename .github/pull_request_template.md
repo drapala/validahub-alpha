@@ -1,41 +1,71 @@
-## Description
-<!-- Brief description of changes and why they're needed -->
+## Context
+<!-- Why this change is needed -->
 
-## Type of Change
-- [ ] 🐛 Bug fix (non-breaking change that fixes an issue)
-- [ ] ✨ New feature (non-breaking change that adds functionality)
-- [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] 📚 Documentation update
-- [ ] 🧹 Code refactor
-- [ ] ⚡ Performance improvement
-- [ ] ✅ Test improvement
-- [ ] 🔧 CI/CD improvement
+## Changes
+- <!-- Bullet points of what was changed -->
+
+## Breaking Changes
+<!-- If applicable, describe migration path -->
 
 ## Related Issues
 <!-- Use keywords: Closes #XX, Fixes #XX, Relates to #XX -->
 Closes #
 
-## Testing
-- [ ] Unit tests pass locally (`make test`)
-- [ ] Integration tests pass
-- [ ] Manual testing completed
-- [ ] Security tests pass
-
 ## Checklist
-- [ ] My code follows the project's style guidelines (ruff, mypy, black)
-- [ ] I have performed a self-review
-- [ ] I have added tests that prove my fix/feature works
-- [ ] New and existing unit tests pass locally
-- [ ] I have updated the documentation (if needed)
-- [ ] My changes generate no new warnings
-- [ ] I have checked my code for security issues
-- [ ] PR size is within limits (≤400 lines)
+- [ ] Title follows Conventional Commits (type(scope): message ≤100 chars)
+- [ ] OpenAPI updated if contract changed
+- [ ] Tests added/adjusted for new functionality
+- [ ] Respects architecture layers (domain → application → infra)
+- [ ] Logs include tenant_id and request_id
+- [ ] DB migration is reversible (if applicable)
+- [ ] PR size within limits (≤200 soft, ≤400 hard or `size/override` label)
+- [ ] Code follows style guidelines (ruff, mypy, black)
+- [ ] Self-review completed
+- [ ] Security implications considered
+- [ ] Performance impact assessed
+- [ ] Documentation updated (if needed)
+
+## Type of Change
+- [ ] feat: New feature
+- [ ] fix: Bug fix
+- [ ] chore: Maintenance
+- [ ] refactor: Code restructuring
+- [ ] docs: Documentation
+- [ ] test: Test improvements
+- [ ] perf: Performance improvement
+- [ ] build: Build system
+- [ ] ci: CI/CD changes
+- [ ] revert: Revert changes
+- [ ] rules: Rule pack changes
+- [ ] contracts: API contract changes
+- [ ] telemetry: Observability changes
+
+## Architecture Validation
+- [ ] Domain layer has no framework dependencies
+- [ ] Application layer doesn't import infra/*
+- [ ] All external integrations use ports/adapters
+- [ ] Multi-tenant context preserved (tenant_id)
+- [ ] LGPD compliance maintained
+
+## Testing
+- [ ] Unit tests pass (`pytest tests/unit/`)
+- [ ] Integration tests pass (`pytest tests/integration/`)
+- [ ] Architecture tests pass (`pytest tests/architecture/`)
+- [ ] Coverage ≥80%
+- [ ] Golden tests updated (if applicable)
+
+## Security & Compliance
+- [ ] No PII in logs or error messages
+- [ ] CSV formula injection protection
+- [ ] Audit logging for data changes
+- [ ] Rate limiting considered
+- [ ] Idempotency implemented (for state changes)
 
 ## Screenshots (if applicable)
 <!-- Add screenshots for UI changes -->
 
 ## Performance Impact
-<!-- Describe any performance implications -->
+<!-- Describe any performance implications, especially for CSV processing -->
 
 ## Rollback Plan
 <!-- How to rollback if this causes issues in production -->
