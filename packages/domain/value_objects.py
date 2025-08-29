@@ -1,392 +1,246 @@
-"""
-Domain Value Objects for ValidaHub.
+"""Value Objects for ValidaHub domain."""
 
-Value Objects are immutable objects that are defined by their attributes rather than identity.
-They encapsulate domain concepts and provide validation, ensuring business invariants are
-maintained at the lowest level of the domain model.
-
-This module contains no framework dependencies, following DDD principles.
-"""
-from __future__ import annotations
-
+from dataclasses import dataclass
+from typing import ClassVar
 import re
-from dataclasses import dataclass, field
-from typing import Any, ClassVar
-from uuid import UUID, uuid4
+import unicodedata
+from urllib.parse import urlparse
 
 
-@dataclass(frozen=True)
-class JobId:
-    """
-    Represents a unique identifier for a Job in the system.
-    
-    Business Rules:
-    - Must be a valid UUID v4
-    - Cannot be empty or None
-    - Immutable once created
-    """
-    value: UUID
-    
-    def __post_init__(self) -> None:
-        """Validate JobId invariants."""
-        if not isinstance(self.value, UUID):
-            raise ValueError(f"JobId must be a UUID, got {type(self.value)}")
-        if self.value.version != 4:
-            raise ValueError(f"JobId must be UUID v4, got version {self.value.version}")
-    
-    @classmethod
-    def generate(cls) -> JobId:
-        """Generate a new JobId with UUID v4."""
-        return cls(uuid4())
-    
-    @classmethod
-    def from_string(cls, value: str) -> JobId:
-        """Create JobId from string representation."""
-        try:
-            return cls(UUID(value))
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"Invalid JobId format: {value}") from e
-    
-    def __str__(self) -> str:
-        """Return string representation of JobId."""
-        return str(self.value)
+def _has_control_or_format(s: str) -> bool:
+    """Check if string contains control or format characters (includes zero-width)."""
+    return any(unicodedata.category(ch) in ("Cc", "Cf") for ch in s)
 
 
 @dataclass(frozen=True)
 class TenantId:
-    """
-    Represents a tenant identifier in the multi-tenant system.
-    
-    Business Rules:
-    - Must follow pattern: t_[alphanumeric]+ (e.g., t_123, t_acme)
-    - Minimum 3 characters after prefix
-    - Maximum 50 total characters
-    - Case-insensitive (stored as lowercase)
-    """
+    """Tenant identifier with normalization and validation."""
     value: str
-    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^t_[a-z0-9]{1,47}$")
     
     def __post_init__(self) -> None:
-        """Validate and normalize TenantId."""
-        # Normalize to lowercase
-        normalized = self.value.lower() if isinstance(self.value, str) else ""
-        object.__setattr__(self, "value", normalized)
-        
-        if not self._pattern.match(normalized):
-            raise ValueError(
-                f"TenantId must match pattern 't_[alphanumeric]{{1,47}}', got '{self.value}'"
-            )
-    
-    def __str__(self) -> str:
-        """Return string representation of TenantId."""
-        return self.value
-
-
-@dataclass(frozen=True)
-class SellerId:
-    """
-    Represents a seller identifier within a tenant context.
-    
-    Business Rules:
-    - Must be alphanumeric with optional underscores and hyphens
-    - Minimum 1 character, maximum 100 characters
-    - Cannot start or end with special characters
-    """
-    value: str
-    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,98}[a-zA-Z0-9]$|^[a-zA-Z0-9]$")
-    
-    def __post_init__(self) -> None:
-        """Validate SellerId format."""
         if not isinstance(self.value, str):
-            raise ValueError(f"SellerId must be a string, got {type(self.value)}")
+            raise ValueError("Invalid tenant id format")
         
-        if not self._pattern.match(self.value):
-            raise ValueError(
-                f"SellerId must be alphanumeric (optionally with _ or -), "
-                f"1-100 chars, got '{self.value}'"
-            )
+        # Normalize
+        normalized = self.value.strip().lower()
+        
+        # Unicode validation
+        if _has_control_or_format(normalized):
+            raise ValueError("Invalid tenant id format")
+        
+        # Length validation
+        if not normalized or len(normalized) < 3 or len(normalized) > 50:
+            raise ValueError("Invalid tenant id format")
+        
+        # Set normalized value
+        object.__setattr__(self, 'value', normalized)
     
     def __str__(self) -> str:
-        """Return string representation of SellerId."""
         return self.value
-
-
-@dataclass(frozen=True)
-class Channel:
-    """
-    Represents a sales channel/marketplace.
     
-    Business Rules:
-    - Must be lowercase alphanumeric with optional underscores
-    - Predefined set of valid channels (extensible via configuration)
-    - Examples: mercado_livre, magalu, shopee, amazon_br
-    """
-    value: str
-    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_]{0,49}$")
-    
-    # Known channels (can be extended via configuration)
-    KNOWN_CHANNELS: ClassVar[set[str]] = {
-        "mercado_livre",
-        "magalu", 
-        "shopee",
-        "amazon_br",
-        "b2w",
-        "via_varejo",
-        "carrefour",
-        "custom"
-    }
-    
-    def __post_init__(self) -> None:
-        """Validate Channel format and optionally check against known channels."""
-        if not isinstance(self.value, str):
-            raise ValueError(f"Channel must be a string, got {type(self.value)}")
-        
-        normalized = self.value.lower()
-        object.__setattr__(self, "value", normalized)
-        
-        if not self._pattern.match(normalized):
-            raise ValueError(
-                f"Channel must be lowercase alphanumeric with optional underscores, "
-                f"got '{self.value}'"
-            )
-    
-    def is_known(self) -> bool:
-        """Check if this is a known/supported channel."""
-        return self.value in self.KNOWN_CHANNELS
-    
-    def __str__(self) -> str:
-        """Return string representation of Channel."""
-        return self.value
+    def __repr__(self) -> str:
+        return f"TenantId('{self.value}')"
 
 
 @dataclass(frozen=True)
 class IdempotencyKey:
-    """
-    Represents an idempotency key for ensuring exactly-once processing.
-    
-    Business Rules:
-    - Must be between 16 and 128 characters
-    - Alphanumeric with optional hyphens and underscores
-    - Used to prevent duplicate job submissions
-    - Unique within a tenant context
-    """
+    """Idempotency key with CSV injection protection."""
     value: str
-    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[a-zA-Z0-9\-_]{16,128}$")
+    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9\-_]{8,128}$")
     
     def __post_init__(self) -> None:
-        """Validate IdempotencyKey format."""
         if not isinstance(self.value, str):
-            raise ValueError(f"IdempotencyKey must be a string, got {type(self.value)}")
+            raise ValueError("Invalid idempotency key format")
         
+        # CSV Injection: block formulas in exports
+        if self.value and self.value[0] in ('=', '+', '-', '@'):
+            raise ValueError("Invalid idempotency key format")
+        
+        # Pattern validation
         if not self._pattern.match(self.value):
-            raise ValueError(
-                f"IdempotencyKey must be 16-128 alphanumeric characters "
-                f"(with optional - or _), got '{self.value}' with length {len(self.value)}"
-            )
-    
-    @classmethod
-    def generate(cls) -> IdempotencyKey:
-        """Generate a new IdempotencyKey using UUID."""
-        return cls(str(uuid4()))
+            raise ValueError("Invalid idempotency key format")
     
     def __str__(self) -> str:
-        """Return string representation of IdempotencyKey."""
         return self.value
+    
+    def __repr__(self) -> str:
+        return f"IdempotencyKey('{self.value}')"
+
+
+# Deny list for dangerous file extensions
+_DENY_EXT = {".exe", ".zip", ".bat", ".cmd", ".sh", ".dll", ".com", ".scr"}
 
 
 @dataclass(frozen=True)
 class FileReference:
-    """
-    Represents a reference to a file in object storage.
-    
-    Business Rules:
-    - Must be a valid S3/object storage path
-    - Format: bucket/path/to/file or full URL
-    - Immutable once created
-    """
+    """File reference with path traversal and extension validation."""
     value: str
-    _url_pattern: ClassVar[re.Pattern[str]] = re.compile(
-        r"^(https?://[^/]+/|s3://[^/]+/|)[a-zA-Z0-9\-_./%]+$"
-    )
     
     def __post_init__(self) -> None:
-        """Validate FileReference format."""
         if not isinstance(self.value, str):
-            raise ValueError(f"FileReference must be a string, got {type(self.value)}")
+            raise ValueError("Invalid file reference")
         
-        if len(self.value) < 3 or len(self.value) > 1024:
-            raise ValueError(
-                f"FileReference must be between 3 and 1024 characters, "
-                f"got {len(self.value)}"
-            )
+        v = self.value or ""
         
-        if not self._url_pattern.match(self.value):
-            raise ValueError(f"Invalid FileReference format: '{self.value}'")
+        # Path traversal protection: normalize backslash and check
+        v_norm = v.replace("\\", "/")
+        if "../" in v_norm:
+            raise ValueError("Invalid file reference")
+        
+        # Block dangerous extensions
+        low = v.lower()
+        for bad_ext in _DENY_EXT:
+            if low.endswith(bad_ext):
+                raise ValueError("Invalid file reference")
     
-    def get_bucket(self) -> str | None:
-        """Extract bucket name from S3 URL if applicable."""
-        if self.value.startswith("s3://"):
-            parts = self.value[5:].split("/", 1)
-            return parts[0] if parts else None
-        return None
+    def get_scheme(self) -> str | None:
+        """Extract URL scheme (e.g., 's3', 'https')."""
+        p = urlparse(self.value)
+        return p.scheme or None
+    
+    def get_host(self) -> str | None:
+        """Extract hostname from URL."""
+        p = urlparse(self.value)
+        return p.hostname or None
+    
+    def get_bucket(self) -> str:
+        """Extract S3 bucket name from S3 URLs."""
+        if self.value.startswith('s3://'):
+            parts = self.value[5:].split('/', 1)
+            return parts[0] if parts else ''
+        # For plain bucket/key format
+        parts = self.value.split('/', 1)
+        return parts[0] if parts else ''
     
     def get_key(self) -> str:
-        """Extract object key from reference."""
-        if self.value.startswith("s3://"):
-            parts = self.value[5:].split("/", 1)
-            return parts[1] if len(parts) > 1 else ""
-        elif self.value.startswith("http"):
-            # Remove protocol and host
-            parts = self.value.split("/", 3)
-            return parts[3] if len(parts) > 3 else ""
-        return self.value
+        """Extract object key from S3 URLs or file path."""
+        if self.value.startswith('s3://'):
+            parts = self.value[5:].split('/', 1)
+            return parts[1] if len(parts) > 1 else ''
+        if self.value.startswith(('http://', 'https://')):
+            p = urlparse(self.value)
+            # Remove leading slash from path
+            return p.path.lstrip('/')
+        # For plain bucket/key format
+        parts = self.value.split('/', 1)
+        return parts[1] if len(parts) > 1 else self.value
     
     def __str__(self) -> str:
-        """Return string representation of FileReference."""
         return self.value
-
-
-@dataclass(frozen=True)
-class JobType:
-    """
-    Represents the type of job/operation.
     
-    Business Rules:
-    - Predefined set of job types
-    - Each type has specific validation and processing rules
-    """
-    value: str
-    
-    # Standard job types
-    VALIDATION: ClassVar[str] = "validation"
-    ENRICHMENT: ClassVar[str] = "enrichment"
-    CORRECTION: ClassVar[str] = "correction"
-    FULL_PIPELINE: ClassVar[str] = "full_pipeline"
-    
-    VALID_TYPES: ClassVar[set[str]] = {
-        VALIDATION,
-        ENRICHMENT,
-        CORRECTION,
-        FULL_PIPELINE
-    }
-    
-    def __post_init__(self) -> None:
-        """Validate JobType."""
-        if not isinstance(self.value, str):
-            raise ValueError(f"JobType must be a string, got {type(self.value)}")
-        
-        normalized = self.value.lower()
-        object.__setattr__(self, "value", normalized)
-        
-        if normalized not in self.VALID_TYPES:
-            raise ValueError(
-                f"JobType must be one of {self.VALID_TYPES}, got '{self.value}'"
-            )
-    
-    def __str__(self) -> str:
-        """Return string representation of JobType."""
-        return self.value
+    def __repr__(self) -> str:
+        return f"FileReference('{self.value}')"
 
 
 @dataclass(frozen=True)
 class RulesProfileId:
-    """
-    Represents a rules profile with version.
-    
-    Business Rules:
-    - Format: channel@version (e.g., mercado_livre@1.2.3)
-    - Version follows SemVer
-    - Immutable for audit trail
-    """
+    """Rules profile with channel and semantic versioning."""
     channel: str
-    version: str
-    _version_pattern: ClassVar[re.Pattern[str]] = re.compile(
-        r"^\d+\.\d+\.\d+(-[a-zA-Z0-9\-\.]+)?(\+[a-zA-Z0-9\-\.]+)?$"
-    )
-    
-    def __post_init__(self) -> None:
-        """Validate RulesProfileId format."""
-        if not isinstance(self.channel, str) or not isinstance(self.version, str):
-            raise ValueError("RulesProfileId channel and version must be strings")
-        
-        if not self._version_pattern.match(self.version):
-            raise ValueError(f"Version must follow SemVer format, got '{self.version}'")
+    major: int
+    minor: int
+    patch: int
     
     @classmethod
-    def from_string(cls, value: str) -> RulesProfileId:
-        """Parse RulesProfileId from string format."""
-        if "@" not in value:
-            raise ValueError(f"RulesProfileId must be in format 'channel@version', got '{value}'")
+    def from_string(cls, value: str) -> 'RulesProfileId':
+        """Parse from 'channel@major.minor.patch' format."""
+        if not value or '@' not in value:
+            raise ValueError("Invalid rules profile format")
         
-        parts = value.rsplit("@", 1)
-        if len(parts) != 2:
-            raise ValueError(f"Invalid RulesProfileId format: '{value}'")
-        
-        return cls(channel=parts[0], version=parts[1])
+        try:
+            channel_part, version_part = value.strip().split('@')
+            channel = channel_part.strip().lower()
+            
+            if not channel:
+                raise ValueError("Invalid rules profile format")
+            
+            version_parts = version_part.strip().split('.')
+            if len(version_parts) != 3:
+                raise ValueError("Invalid rules profile format")
+            
+            major = int(version_parts[0])
+            minor = int(version_parts[1])
+            patch = int(version_parts[2])
+            
+            if major < 0 or minor < 0 or patch < 0:
+                raise ValueError("Invalid rules profile format")
+            
+            return cls(channel, major, minor, patch)
+        except (ValueError, IndexError):
+            raise ValueError("Invalid rules profile format")
+    
+    @property
+    def version(self) -> str:
+        """Get version string."""
+        return f"{self.major}.{self.minor}.{self.patch}"
     
     def __str__(self) -> str:
-        """Return string representation as channel@version."""
         return f"{self.channel}@{self.version}"
+    
+    def __repr__(self) -> str:
+        return f"RulesProfileId('{self}')"
 
 
 @dataclass(frozen=True)
 class ProcessingCounters:
-    """
-    Immutable counters for job processing results.
-    
-    Business Rules:
-    - All counters must be non-negative
-    - errors + warnings should not exceed total
-    - processed <= total (some items might be skipped)
-    """
-    total: int = 0
-    processed: int = 0
-    errors: int = 0
-    warnings: int = 0
+    """Processing counters with invariant validation."""
+    total: int
+    processed: int
+    errors: int
+    warnings: int
     
     def __post_init__(self) -> None:
-        """Validate counter invariants."""
+        # All values must be non-negative
         if any(v < 0 for v in [self.total, self.processed, self.errors, self.warnings]):
-            raise ValueError("All counters must be non-negative")
+            raise ValueError("Invalid processing counters")
         
+        # Processed cannot exceed total
         if self.processed > self.total:
-            raise ValueError(f"Processed ({self.processed}) cannot exceed total ({self.total})")
+            raise ValueError("Invalid processing counters")
         
-        if self.errors > self.processed:
-            raise ValueError(f"Errors ({self.errors}) cannot exceed processed ({self.processed})")
+        # Errors + warnings cannot exceed processed
+        if self.errors + self.warnings > self.processed:
+            raise ValueError("Invalid processing counters")
     
-    def with_incremented_error(self) -> ProcessingCounters:
-        """Return new instance with incremented error count."""
-        return ProcessingCounters(
-            total=self.total,
-            processed=self.processed,
-            errors=self.errors + 1,
-            warnings=self.warnings
-        )
+    def get_success_count(self) -> int:
+        """Calculate number of successful items."""
+        return self.processed - self.errors - self.warnings
     
-    def with_incremented_warning(self) -> ProcessingCounters:
-        """Return new instance with incremented warning count."""
-        return ProcessingCounters(
-            total=self.total,
-            processed=self.processed,
-            errors=self.errors,
-            warnings=self.warnings + 1
-        )
+    def get_success_rate(self) -> float:
+        """Calculate success rate (0.0 to 1.0)."""
+        if self.processed == 0:
+            return 0.0
+        return self.get_success_count() / self.processed
     
-    def with_item_processed(self, had_error: bool = False, had_warning: bool = False) -> ProcessingCounters:
-        """Return new instance with an item marked as processed."""
-        return ProcessingCounters(
-            total=self.total,
-            processed=self.processed + 1,
-            errors=self.errors + (1 if had_error else 0),
-            warnings=self.warnings + (1 if had_warning else 0)
-        )
+    def get_error_rate(self) -> float:
+        """Calculate error rate (0.0 to 1.0)."""
+        if self.processed == 0:
+            return 0.0
+        return self.errors / self.processed
     
-    def to_dict(self) -> dict[str, int]:
-        """Convert to dictionary for serialization."""
-        return {
-            "total": self.total,
-            "processed": self.processed,
-            "errors": self.errors,
-            "warnings": self.warnings
-        }
+    def get_warning_rate(self) -> float:
+        """Calculate warning rate (0.0 to 1.0)."""
+        if self.processed == 0:
+            return 0.0
+        return self.warnings / self.processed
+    
+    def is_complete(self) -> bool:
+        """Check if processing is complete."""
+        return self.processed == self.total
+    
+    def has_errors(self) -> bool:
+        """Check if there are any errors."""
+        return self.errors > 0
+    
+    def has_warnings(self) -> bool:
+        """Check if there are any warnings."""
+        return self.warnings > 0
+    
+    def is_perfect(self) -> bool:
+        """Check if processing was perfect (complete with no issues)."""
+        return self.is_complete() and not self.has_errors() and not self.has_warnings()
+    
+    def __str__(self) -> str:
+        return f"ProcessingCounters(total={self.total}, processed={self.processed}, errors={self.errors}, warnings={self.warnings})"
+    
+    def __repr__(self) -> str:
+        return self.__str__()
