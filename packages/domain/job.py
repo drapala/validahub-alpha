@@ -31,32 +31,6 @@ from .value_objects import (
     TenantId,
 )
 
-try:
-    from packages.shared.logging import get_logger
-    from packages.shared.logging.security import AuditEventType, AuditLogger
-except ImportError:
-    # Fallback logging for testing without full dependencies
-    import logging
-    def get_logger(name: str):
-        return logging.getLogger(name)
-    
-    class AuditEventType:
-        JOB_SUBMITTED = "job_submitted"
-        JOB_STARTED = "job_started"
-        JOB_COMPLETED = "job_completed"
-        JOB_FAILED = "job_failed"
-        JOB_RETRIED = "job_retried"
-        JOB_CANCELLED = "job_cancelled"
-        JOB_EXPIRED = "job_expired"
-
-    class AuditLogger:
-        def __init__(self, name: str):
-            self.logger = logging.getLogger(name)
-        
-        def job_lifecycle(self, **kwargs):
-            self.logger.info("Job lifecycle event", extra=kwargs)
-
-
 @dataclass
 class Job:
     """
@@ -100,7 +74,6 @@ class Job:
     
     def __post_init__(self) -> None:
         """Validate invariants after initialization."""
-        logger = get_logger("domain.job")
         
         # Timezone validation
         if not self.created_at.tzinfo:
@@ -168,8 +141,6 @@ class Job:
         Returns:
             New Job instance in QUEUED status
         """
-        logger = get_logger("domain.job")
-        audit_logger = AuditLogger("domain.job")
         
         job_id = JobId(uuid4())
         now = datetime.now(UTC)
@@ -208,9 +179,6 @@ class Job:
         job._events.append(event)
         
         # Audit logging
-        audit_logger.job_lifecycle(
-            event_type=AuditEventType.JOB_SUBMITTED,
-            job_id=str(job_id),
             tenant_id=str(tenant_id),
             seller_id=seller_id,
             status=JobStatus.QUEUED.value,
@@ -218,10 +186,6 @@ class Job:
             trace_id=trace_id,
         )
         
-        logger.info(
-            "job_created",
-            job_id=str(job_id),
-            tenant_id=str(tenant_id),
             seller_id=seller_id,
             channel=str(channel),
             type=job_type.value,
@@ -254,8 +218,6 @@ class Job:
                 to_state=JobStatus.RUNNING.value
             )
         
-        logger = get_logger("domain.job")
-        audit_logger = AuditLogger("domain.job")
         now = datetime.now(UTC)
         
         # Create new job instance with updated state
@@ -288,9 +250,6 @@ class Job:
         new_job._events.append(event)
         
         # Audit logging
-        audit_logger.job_lifecycle(
-            event_type=AuditEventType.JOB_STARTED,
-            job_id=str(self.id),
             tenant_id=str(self.tenant_id),
             status=JobStatus.RUNNING.value,
             from_status=self.status.value,
@@ -298,10 +257,6 @@ class Job:
             trace_id=trace_id,
         )
         
-        logger.info(
-            "job_started",
-            job_id=str(self.id),
-            tenant_id=str(self.tenant_id),
             from_status=self.status.value,
             to_status=JobStatus.RUNNING.value,
         )
@@ -341,8 +296,6 @@ class Job:
                 to_state=JobStatus.SUCCEEDED.value
             )
         
-        logger = get_logger("domain.job")
-        audit_logger = AuditLogger("domain.job")
         now = datetime.now(UTC)
         
         # Create new job instance with updated state
@@ -382,9 +335,6 @@ class Job:
         new_job._events.append(event)
         
         # Audit logging
-        audit_logger.job_lifecycle(
-            event_type=AuditEventType.JOB_COMPLETED,
-            job_id=str(self.id),
             tenant_id=str(self.tenant_id),
             status=JobStatus.SUCCEEDED.value,
             from_status=self.status.value,
@@ -394,10 +344,6 @@ class Job:
             trace_id=trace_id,
         )
         
-        logger.info(
-            "job_succeeded",
-            job_id=str(self.id),
-            tenant_id=str(self.tenant_id),
             duration_ms=duration_ms,
             counters=counters.__dict__,
         )
@@ -441,8 +387,6 @@ class Job:
                 to_state=JobStatus.FAILED.value
             )
         
-        logger = get_logger("domain.job")
-        audit_logger = AuditLogger("domain.job")
         now = datetime.now(UTC)
         
         # Create new job instance with updated state
@@ -484,9 +428,6 @@ class Job:
         new_job._events.append(event)
         
         # Audit logging
-        audit_logger.job_lifecycle(
-            event_type=AuditEventType.JOB_FAILED,
-            job_id=str(self.id),
             tenant_id=str(self.tenant_id),
             status=JobStatus.FAILED.value,
             from_status=self.status.value,
@@ -538,8 +479,6 @@ class Job:
                 to_state=JobStatus.CANCELLED.value
             )
         
-        logger = get_logger("domain.job")
-        audit_logger = AuditLogger("domain.job")
         now = datetime.now(UTC)
         
         # Create new job instance with updated state
@@ -574,9 +513,6 @@ class Job:
         new_job._events.append(event)
         
         # Audit logging
-        audit_logger.job_lifecycle(
-            event_type=AuditEventType.JOB_CANCELLED,
-            job_id=str(self.id),
             tenant_id=str(self.tenant_id),
             status=JobStatus.CANCELLED.value,
             from_status=self.status.value,
@@ -585,10 +521,6 @@ class Job:
             trace_id=trace_id,
         )
         
-        logger.info(
-            "job_cancelled",
-            job_id=str(self.id),
-            tenant_id=str(self.tenant_id),
             reason=reason,
         )
         
@@ -621,8 +553,6 @@ class Job:
                 to_state="retried"
             )
         
-        logger = get_logger("domain.job")
-        audit_logger = AuditLogger("domain.job")
         
         # Create new job with same configuration but new ID
         new_job_id = JobId(uuid4())
@@ -657,19 +587,12 @@ class Job:
         retry_job._events.append(event)
         
         # Audit logging
-        audit_logger.job_lifecycle(
-            event_type=AuditEventType.JOB_RETRIED,
-            job_id=str(new_job_id),
             tenant_id=str(self.tenant_id),
             original_job_id=str(self.id),
             actor_id=actor_id,
             trace_id=trace_id,
         )
         
-        logger.info(
-            "job_retried",
-            job_id=str(new_job_id),
-            original_job_id=str(self.id),
             tenant_id=str(self.tenant_id),
         )
         
@@ -704,8 +627,6 @@ class Job:
                 to_state=JobStatus.EXPIRED.value
             )
         
-        logger = get_logger("domain.job")
-        audit_logger = AuditLogger("domain.job")
         now = datetime.now(UTC)
         
         # Create new job instance with updated state
@@ -739,9 +660,6 @@ class Job:
         new_job._events.append(event)
         
         # Audit logging
-        audit_logger.job_lifecycle(
-            event_type=AuditEventType.JOB_EXPIRED,
-            job_id=str(self.id),
             tenant_id=str(self.tenant_id),
             status=JobStatus.EXPIRED.value,
             from_status=self.status.value,
