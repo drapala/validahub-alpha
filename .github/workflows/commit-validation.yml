@@ -44,7 +44,8 @@ jobs:
             
             # ValidaHub Conventional Commits validation
             # Pattern: type(scope): message
-            if [[ ! "$MESSAGE" =~ ^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|rules|contracts|telemetry)(\([a-z0-9,-]+\))?!?:\ .+ ]]; then
+            PATTERN="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert|rules|contracts|telemetry)(\([a-z0-9,-]+\))?!?: .+"
+            if [[ ! "$MESSAGE" =~ $PATTERN ]]; then
               VALIDATION_ERRORS+=("❌ $commit: Invalid format - $MESSAGE")
               VALIDATION_ERRORS+=("   Expected: type(scope): message")
               VALIDATION_ERRORS+=("   Valid types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert, rules, contracts, telemetry")
@@ -52,29 +53,32 @@ jobs:
             fi
             
             # Check message length (≤100 chars as per CLAUDE.md)
-            if [ ${#MESSAGE} -gt 100 ]; then
+            if [[ ${#MESSAGE} -gt 100 ]]; then
               VALIDATION_ERRORS+=("❌ $commit: Message too long (${#MESSAGE}/100 chars) - $MESSAGE")
               VALIDATION_ERRORS+=("")
             fi
             
             # Check subject case (should not start with capital letter)
-            if [[ "$MESSAGE" =~ ^[a-z]+(\([^)]*\))?!?:\ [A-Z] ]]; then
+            CASE_PATTERN="^[a-z]+(\([^)]*\))?!?: [A-Z]"
+            if [[ "$MESSAGE" =~ $CASE_PATTERN ]]; then
               VALIDATION_ERRORS+=("❌ $commit: Subject should not start with capital letter - $MESSAGE")
               VALIDATION_ERRORS+=("")
             fi
             
             # Check for period at end
-            if [[ "$MESSAGE" =~ \. ]]; then
+            if [[ "$MESSAGE" =~ \.$ ]]; then
               VALIDATION_ERRORS+=("❌ $commit: Message should not end with period - $MESSAGE")
               VALIDATION_ERRORS+=("")
             fi
             
             # Validate scope if present
-            if [[ "$MESSAGE" =~ ^[a-z]+\(([^)]+)\) ]]; then
+            SCOPE_PATTERN="^[a-z]+\(([^)]+)\)"
+            if [[ "$MESSAGE" =~ $SCOPE_PATTERN ]]; then
               SCOPE="${BASH_REMATCH[1]}"
               VALID_SCOPES="domain|application|infra|api|web|contracts|rules|analytics|ops|security|compliance|project|tests|docs|ci|logging|app|tech-debt|pipeline|release|agents"
+              SCOPE_CHECK="^($VALID_SCOPES)$"
               
-              if [[ ! "$SCOPE" =~ ^($VALID_SCOPES)$ ]]; then
+              if [[ ! "$SCOPE" =~ $SCOPE_CHECK ]]; then
                 VALIDATION_ERRORS+=("❌ $commit: Invalid scope '$SCOPE' - $MESSAGE")
                 VALIDATION_ERRORS+=("   Valid scopes: domain, application, infra, api, web, contracts, rules, analytics, ops, security, compliance, project, tests, docs, ci, logging, app, tech-debt, pipeline, release, agents")
                 VALIDATION_ERRORS+=("")
@@ -91,7 +95,7 @@ jobs:
           
           echo "Validated $COMMIT_COUNT commits"
           
-          if [ ${#VALIDATION_ERRORS[@]} -gt 0 ]; then
+          if [[ ${#VALIDATION_ERRORS[@]} -gt 0 ]]; then
             echo "❌ Commit message validation failed!"
             echo ""
             echo "Validation errors:"
