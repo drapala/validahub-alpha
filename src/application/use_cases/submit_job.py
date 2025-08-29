@@ -9,7 +9,13 @@ from src.application.errors import RateLimitExceeded, ValidationError
 from src.application.ports import JobRepository, RateLimiter, EventBus
 from src.domain.job import Job, JobStatus
 from src.domain.value_objects import TenantId, IdempotencyKey, Channel, FileReference, RulesProfileId
-from src.shared.logging import get_logger
+# Graceful handling of logging dependencies
+try:
+    from src.shared.logging import get_logger
+except ImportError:
+    import logging
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 
 @dataclass(frozen=True)
