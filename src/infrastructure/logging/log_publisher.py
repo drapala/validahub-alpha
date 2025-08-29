@@ -9,12 +9,14 @@ from src.domain.events import (
     JobStateTransitionAttemptedEvent,
     JobStateTransitionSucceededEvent,
     JobStateTransitionFailedEvent,
-    JobAuditEvent
+    JobAuditEvent,
+    ValueObjectValidationEvent,
+    SecurityThreatDetectedEvent
 )
 
 # Import logging infrastructure
 from shared.logging import get_logger
-from shared.logging.security import AuditLogger, AuditEventType
+from shared.logging.security import AuditLogger, AuditEventType, SecurityLogger, SecurityEventType
 
 
 class ConcreteLogPublisher(LogPublisher):
@@ -27,6 +29,7 @@ class ConcreteLogPublisher(LogPublisher):
         """Initialize the log publisher with structured and audit loggers."""
         self._logger = get_logger("domain.events")
         self._audit = AuditLogger("domain.job")
+        self._security = SecurityLogger("domain.security")
         
         # Mapping from domain event audit types to AuditEventType enum
         self._audit_type_mapping = {
@@ -74,6 +77,10 @@ class ConcreteLogPublisher(LogPublisher):
             self._publish_transition_failed_event(event)
         elif isinstance(event, JobAuditEvent):
             self._publish_job_audit_event(event)
+        elif isinstance(event, ValueObjectValidationEvent):
+            self._publish_value_object_validation_event(event)
+        elif isinstance(event, SecurityThreatDetectedEvent):
+            self._publish_security_threat_event(event)
         else:
             # Unknown event type - log as generic domain event
             self._publish_generic_domain_event(event)
@@ -201,3 +208,91 @@ class ConcreteLogPublisher(LogPublisher):
             correlation_id=event.correlation_id,
             occurred_at=event.occurred_at.isoformat()
         )
+    
+    def _publish_value_object_validation_event(self, event: ValueObjectValidationEvent) -> None:
+        """Publish value object validation events to appropriate log levels."""
+        # Build base log data
+        log_data = {
+            "event_id": event.event_id,
+            "tenant_id": event.tenant_id,
+            "correlation_id": event.correlation_id,
+            "occurred_at": event.occurred_at.isoformat(),
+            "value_object_type": event.value_object_type,
+            "validation_result": event.validation_result
+        }
+        
+        # Add metadata if present
+        if event.metadata:
+            log_data.update(event.metadata)
+        
+        if event.validation_result == "failed":
+            # Log validation failures as warnings with error details
+            log_data.update({
+                "error_type": event.error_type,
+                "error_reason": event.error_reason
+            })
+            self._logger.warning(
+                f"{event.value_object_type.lower()}_validation_failed",
+                **log_data
+            )
+        else:
+            # Log successful validations as debug events
+            self._logger.debug(
+                f"{event.value_object_type.lower()}_created",
+                **log_data
+            )
+    
+    def _publish_security_threat_event(self, event: SecurityThreatDetectedEvent) -> None:
+        """Publish security threat events using the SecurityLogger."""
+        # Map threat types to security event types
+        if event.threat_type == "csv_formula":
+            self._security.injection_attempt(
+                injection_type="csv_formula",
+                field_name=event.field_name,
+                tenant_id=event.tenant_id,
+                correlation_id=event.correlation_id,
+                event_id=event.event_id,
+                **(event.details or {})
+            )
+        elif event.threat_type == "unicode_control":
+            self._security.injection_attempt(
+                injection_type="unicode_control",
+                field_name=event.field_name,
+                tenant_id=event.tenant_id,
+                correlation_id=event.correlation_id,
+                event_id=event.event_id,
+                **(event.details or {})
+            )
+        elif event.threat_type == "path_traversal":
+            self._security.injection_attempt(
+                injection_type="path_traversal",
+                field_name=event.field_name,
+                tenant_id=event.tenant_id,
+                correlation_id=event.correlation_id,
+                event_id=event.event_id,
+                **(event.details or {})
+            )
+        elif event.threat_type == "dangerous_file":
+            self._security.log_security_event(
+                SecurityEventType.DANGEROUS_FILE,
+                "Dangerous file extension blocked",
+                severity=event.severity,
+                field_name=event.field_name,
+                tenant_id=event.tenant_id,
+                correlation_id=event.correlation_id,
+                event_id=event.event_id,
+                **(event.details or {})
+            )
+        else:
+            # Generic security threat logging
+            self._logger.error(
+                "security_threat_detected",
+                threat_type=event.threat_type,
+                field_name=event.field_name,
+                severity=event.severity,
+                tenant_id=event.tenant_id,
+                correlation_id=event.correlation_id,
+                event_id=event.event_id,
+                occurred_at=event.occurred_at.isoformat(),
+                details=event.details
+            )

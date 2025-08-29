@@ -84,8 +84,8 @@ class Job:
         # Emit job created event
         job._add_domain_event(
             JobCreatedEvent.create(
-                job_id=job.id,
-                tenant_id=job.tenant_id,
+                job_id=str(job.id.value),
+                tenant_id=job.tenant_id.value,
                 status=job.status.value,
                 creation_duration_ms=creation_duration_ms,
                 correlation_id=correlation_id
@@ -95,8 +95,8 @@ class Job:
         # Emit audit event for job submission
         job._add_domain_event(
             JobAuditEvent.create(
-                job_id=job.id,
-                tenant_id=job.tenant_id,
+                job_id=str(job.id.value),
+                tenant_id=job.tenant_id.value,
                 event_type="JOB_SUBMITTED",
                 status=job.status.value,
                 correlation_id=correlation_id,
@@ -128,8 +128,8 @@ class Job:
         
         # Emit transition attempted event
         attempt_event = JobStateTransitionAttemptedEvent.create(
-            job_id=self.id,
-            tenant_id=self.tenant_id,
+            job_id=str(self.id.value),
+            tenant_id=self.tenant_id.value,
             from_status=self.status.value,
             to_status=target_status.value,
             correlation_id=correlation_id
@@ -138,8 +138,8 @@ class Job:
         if self.status not in [JobStatus.SUBMITTED, JobStatus.RETRYING]:
             # Emit transition failed event
             failed_event = JobStateTransitionFailedEvent.create(
-                job_id=self.id,
-                tenant_id=self.tenant_id,
+                job_id=str(self.id.value),
+                tenant_id=self.tenant_id.value,
                 from_status=self.status.value,
                 attempted_status=target_status.value,
                 reason="Invalid state transition",
@@ -167,8 +167,8 @@ class Job:
         # Emit successful transition event
         new_job._add_domain_event(
             JobStateTransitionSucceededEvent.create(
-                job_id=new_job.id,
-                tenant_id=new_job.tenant_id,
+                job_id=str(new_job.id.value),
+                tenant_id=new_job.tenant_id.value,
                 from_status=self.status.value,
                 to_status=new_job.status.value,
                 transition_duration_ms=transition_duration_ms,
@@ -179,8 +179,8 @@ class Job:
         # Emit audit event
         new_job._add_domain_event(
             JobAuditEvent.create(
-                job_id=new_job.id,
-                tenant_id=new_job.tenant_id,
+                job_id=str(new_job.id.value),
+                tenant_id=new_job.tenant_id.value,
                 event_type="JOB_STARTED",
                 status=new_job.status.value,
                 correlation_id=correlation_id,
@@ -212,8 +212,8 @@ class Job:
         
         # Emit transition attempted event
         attempt_event = JobStateTransitionAttemptedEvent.create(
-            job_id=self.id,
-            tenant_id=self.tenant_id,
+            job_id=str(self.id.value),
+            tenant_id=self.tenant_id.value,
             from_status=self.status.value,
             to_status=target_status.value,
             correlation_id=correlation_id
@@ -222,8 +222,8 @@ class Job:
         if self.status != JobStatus.RUNNING:
             # Emit transition failed event
             failed_event = JobStateTransitionFailedEvent.create(
-                job_id=self.id,
-                tenant_id=self.tenant_id,
+                job_id=str(self.id.value),
+                tenant_id=self.tenant_id.value,
                 from_status=self.status.value,
                 attempted_status=target_status.value,
                 reason="Invalid state transition",
@@ -254,8 +254,8 @@ class Job:
         # Emit successful transition event
         new_job._add_domain_event(
             JobStateTransitionSucceededEvent.create(
-                job_id=new_job.id,
-                tenant_id=new_job.tenant_id,
+                job_id=str(new_job.id.value),
+                tenant_id=new_job.tenant_id.value,
                 from_status=self.status.value,
                 to_status=new_job.status.value,
                 transition_duration_ms=transition_duration_ms,
@@ -267,8 +267,8 @@ class Job:
         # Emit audit event
         new_job._add_domain_event(
             JobAuditEvent.create(
-                job_id=new_job.id,
-                tenant_id=new_job.tenant_id,
+                job_id=str(new_job.id.value),
+                tenant_id=new_job.tenant_id.value,
                 event_type="JOB_COMPLETED",
                 status=new_job.status.value,
                 correlation_id=correlation_id,
@@ -301,8 +301,8 @@ class Job:
         
         # Emit transition attempted event
         attempt_event = JobStateTransitionAttemptedEvent.create(
-            job_id=self.id,
-            tenant_id=self.tenant_id,
+            job_id=str(self.id.value),
+            tenant_id=self.tenant_id.value,
             from_status=self.status.value,
             to_status=target_status.value,
             correlation_id=correlation_id
@@ -311,8 +311,8 @@ class Job:
         if self.status != JobStatus.RUNNING:
             # Emit transition failed event
             failed_event = JobStateTransitionFailedEvent.create(
-                job_id=self.id,
-                tenant_id=self.tenant_id,
+                job_id=str(self.id.value),
+                tenant_id=self.tenant_id.value,
                 from_status=self.status.value,
                 attempted_status=target_status.value,
                 reason="Invalid state transition",
@@ -340,8 +340,8 @@ class Job:
         # Emit successful transition event (with error message)
         new_job._add_domain_event(
             JobStateTransitionSucceededEvent.create(
-                job_id=new_job.id,
-                tenant_id=new_job.tenant_id,
+                job_id=str(new_job.id.value),
+                tenant_id=new_job.tenant_id.value,
                 from_status=self.status.value,
                 to_status=new_job.status.value,
                 transition_duration_ms=transition_duration_ms,
@@ -353,8 +353,8 @@ class Job:
         # Emit audit event
         new_job._add_domain_event(
             JobAuditEvent.create(
-                job_id=new_job.id,
-                tenant_id=new_job.tenant_id,
+                job_id=str(new_job.id.value),
+                tenant_id=new_job.tenant_id.value,
                 event_type="JOB_FAILED",
                 status=new_job.status.value,
                 correlation_id=correlation_id,
@@ -387,8 +387,8 @@ class Job:
         
         # Emit transition attempted event
         attempt_event = JobStateTransitionAttemptedEvent.create(
-            job_id=self.id,
-            tenant_id=self.tenant_id,
+            job_id=str(self.id.value),
+            tenant_id=self.tenant_id.value,
             from_status=self.status.value,
             to_status=target_status.value,
             correlation_id=correlation_id
@@ -397,8 +397,8 @@ class Job:
         if self.status != JobStatus.FAILED:
             # Emit transition failed event
             failed_event = JobStateTransitionFailedEvent.create(
-                job_id=self.id,
-                tenant_id=self.tenant_id,
+                job_id=str(self.id.value),
+                tenant_id=self.tenant_id.value,
                 from_status=self.status.value,
                 attempted_status=target_status.value,
                 reason="Invalid state transition",
@@ -426,8 +426,8 @@ class Job:
         # Emit successful transition event (with retry attempt)
         new_job._add_domain_event(
             JobStateTransitionSucceededEvent.create(
-                job_id=new_job.id,
-                tenant_id=new_job.tenant_id,
+                job_id=str(new_job.id.value),
+                tenant_id=new_job.tenant_id.value,
                 from_status=self.status.value,
                 to_status=new_job.status.value,
                 transition_duration_ms=transition_duration_ms,
@@ -439,8 +439,8 @@ class Job:
         # Emit audit event
         new_job._add_domain_event(
             JobAuditEvent.create(
-                job_id=new_job.id,
-                tenant_id=new_job.tenant_id,
+                job_id=str(new_job.id.value),
+                tenant_id=new_job.tenant_id.value,
                 event_type="JOB_RETRIED",
                 status=new_job.status.value,
                 correlation_id=correlation_id,
