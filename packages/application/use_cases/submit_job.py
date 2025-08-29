@@ -10,23 +10,32 @@ This use case orchestrates the job submission process including:
 Following SOLID principles and DDD patterns.
 """
 
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
 import time
+from dataclasses import dataclass
+from typing import Any
 
-from packages.domain.job import Job
-from packages.domain.enums import JobType
-from packages.domain.value_objects import (
-    TenantId, Channel, FileReference, RulesProfileId, 
-    IdempotencyKey, ProcessingCounters
-)
-from packages.domain.errors import (
-    RateLimitExceededError, IdempotencyViolationError, 
-    SecurityViolationError, BusinessRuleViolationError
-)
 from packages.application.ports import (
-    JobRepository, RateLimiter, EventBus, ObjectStorage,
-    AuditLogger, MetricsCollector, TracingContext, EventOutbox
+    AuditLogger,
+    EventBus,
+    EventOutbox,
+    JobRepository,
+    MetricsCollector,
+    ObjectStorage,
+    RateLimiter,
+    TracingContext,
+)
+from packages.domain.enums import JobType
+from packages.domain.errors import (
+    BusinessRuleViolationError,
+    RateLimitExceededError,
+)
+from packages.domain.job import Job
+from packages.domain.value_objects import (
+    Channel,
+    FileReference,
+    IdempotencyKey,
+    RulesProfileId,
+    TenantId,
 )
 
 try:
@@ -46,13 +55,13 @@ class SubmitJobRequest:
     job_type: str
     file_ref: str
     rules_profile_id: str
-    idempotency_key: Optional[str] = None
-    callback_url: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    idempotency_key: str | None = None
+    callback_url: str | None = None
+    metadata: dict[str, Any] | None = None
     # Observability context
-    request_id: Optional[str] = None
-    user_id: Optional[str] = None
-    trace_id: Optional[str] = None
+    request_id: str | None = None
+    user_id: str | None = None
+    trace_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -239,7 +248,7 @@ class SubmitJobUseCase:
         finally:
             self.tracing_context.finish_span(span_context)
     
-    def _check_rate_limits(self, tenant_id: TenantId, request_id: Optional[str]) -> None:
+    def _check_rate_limits(self, tenant_id: TenantId, request_id: str | None) -> None:
         """Check if tenant has exceeded rate limits."""
         if not self.rate_limiter.check_and_consume(tenant_id, "job_submission"):
             rate_limit_info = self.rate_limiter.get_limit_info(tenant_id, "job_submission")
@@ -262,7 +271,7 @@ class SubmitJobUseCase:
         self,
         file_ref: FileReference,
         tenant_id: TenantId,
-        request_id: Optional[str],
+        request_id: str | None,
     ) -> None:
         """Validate that file reference is accessible and valid."""
         try:
@@ -315,9 +324,9 @@ class SubmitJobUseCase:
     def _check_idempotency(
         self,
         tenant_id: TenantId,
-        idempotency_key: Optional[IdempotencyKey],
-        request_id: Optional[str],
-    ) -> Optional[Job]:
+        idempotency_key: IdempotencyKey | None,
+        request_id: str | None,
+    ) -> Job | None:
         """Check idempotency constraints and return existing job if found."""
         if not idempotency_key:
             return None
@@ -376,7 +385,7 @@ class SubmitJobUseCase:
     
     def _record_failure_metrics(
         self,
-        tenant_id: Optional[TenantId],
+        tenant_id: TenantId | None,
         error: Exception,
         start_time: float,
     ) -> None:

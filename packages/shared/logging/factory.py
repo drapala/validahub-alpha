@@ -3,25 +3,23 @@ Logging factory with structured logging and LGPD compliance.
 """
 
 import os
-import sys
-from typing import Any, Dict, Optional
 
 import structlog
 from structlog.contextvars import merge_contextvars
 from structlog.processors import (
-    TimeStamper,
-    add_log_level,
     CallsiteParameter,
     CallsiteParameterAdder,
     ExceptionPrettyPrinter,
     JSONRenderer,
     KeyValueRenderer,
+    TimeStamper,
     UnicodeDecoder,
+    add_log_level,
 )
 from structlog.stdlib import (
+    BoundLogger,
     ProcessorFormatter,
     add_logger_name,
-    BoundLogger,
 )
 
 from .sanitizers import LGPDProcessor

@@ -2,9 +2,9 @@
 Security and audit logging utilities.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 
 import structlog
 from structlog.stdlib import BoundLogger
@@ -119,7 +119,7 @@ class SecurityLogger:
         event_data = {
             "event_type": event_type.value,
             "component": self.component,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "request_id": get_request_id(),
             "correlation_id": get_correlation_id(),
             "tenant_id": get_tenant_id(),
@@ -133,8 +133,8 @@ class SecurityLogger:
     def injection_attempt(
         self,
         injection_type: str,
-        input_value: Optional[str] = None,
-        field_name: Optional[str] = None,
+        input_value: str | None = None,
+        field_name: str | None = None,
         **context: Any,
     ) -> None:
         """Log an injection attempt."""
@@ -206,9 +206,9 @@ class AuditLogger:
         entity_type: str,
         entity_id: str,
         action: str,
-        actor_id: Optional[str] = None,
-        before: Optional[Dict[str, Any]] = None,
-        after: Optional[Dict[str, Any]] = None,
+        actor_id: str | None = None,
+        before: dict[str, Any] | None = None,
+        after: dict[str, Any] | None = None,
         **context: Any,
     ) -> None:
         """
@@ -231,7 +231,7 @@ class AuditLogger:
             "entity_id": entity_id,
             "action": action,
             "actor_id": actor_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "request_id": get_request_id(),
             "correlation_id": get_correlation_id(),
             "tenant_id": get_tenant_id(),
@@ -252,7 +252,7 @@ class AuditLogger:
         event_type: AuditEventType,
         job_id: str,
         status: str,
-        actor_id: Optional[str] = None,
+        actor_id: str | None = None,
         **context: Any,
     ) -> None:
         """Log job lifecycle event."""
@@ -271,7 +271,7 @@ class AuditLogger:
         operation: str,
         entity_type: str,
         count: int,
-        actor_id: Optional[str] = None,
+        actor_id: str | None = None,
         **context: Any,
     ) -> None:
         """Log data operation event."""

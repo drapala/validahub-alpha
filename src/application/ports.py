@@ -9,6 +9,7 @@ from typing import Optional
 
 from src.domain.job import Job
 from src.domain.value_objects import TenantId, IdempotencyKey
+from src.application.ports.logging import LoggingPort
 
 
 class JobRepository(ABC):

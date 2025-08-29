@@ -3,9 +3,9 @@ LGPD-compliant data sanitizers for logging.
 """
 
 import re
-from typing import Any, Dict, List, Optional, Union
-from structlog.types import EventDict, WrappedLogger
+from typing import Any
 
+from structlog.types import EventDict, WrappedLogger
 
 # Sensitive field patterns that should be masked
 SENSITIVE_PATTERNS = [
@@ -56,7 +56,7 @@ class LGPDProcessor:
         return sanitize_for_log(event_dict)
 
 
-def sanitize_for_log(data: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_for_log(data: dict[str, Any]) -> dict[str, Any]:
     """
     Sanitize a dictionary for LGPD-compliant logging.
     

@@ -12,15 +12,14 @@ Features:
 - Comprehensive error handling and logging
 """
 
-from typing import List, Optional
-from datetime import datetime, timezone
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import and_, or_
+from datetime import UTC, datetime
 
 from packages.application.ports import EventOutbox
 from packages.domain.events import DomainEvent
 from packages.infra.models.job_model import EventOutboxModel
+from sqlalchemy import and_
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 try:
     from packages.shared.logging import get_logger
@@ -51,8 +50,8 @@ class SqlAlchemyEventOutbox(EventOutbox):
     
     def store_events(
         self,
-        events: List[DomainEvent],
-        correlation_id: Optional[str] = None,
+        events: list[DomainEvent],
+        correlation_id: str | None = None,
     ) -> None:
         """
         Store events in outbox for later publishing.
@@ -118,7 +117,7 @@ class SqlAlchemyEventOutbox(EventOutbox):
             )
             raise
     
-    def get_pending_events(self, limit: int = 100) -> List[DomainEvent]:
+    def get_pending_events(self, limit: int = 100) -> list[DomainEvent]:
         """
         Get pending events for publishing.
         
@@ -178,7 +177,7 @@ class SqlAlchemyEventOutbox(EventOutbox):
             )
             return []
     
-    def mark_published(self, event_ids: List[str]) -> None:
+    def mark_published(self, event_ids: list[str]) -> None:
         """
         Mark events as successfully published.
         
@@ -208,7 +207,7 @@ class SqlAlchemyEventOutbox(EventOutbox):
                 return
             
             # Update events as dispatched
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             rows_updated = self.session.query(EventOutboxModel).filter(
                 and_(
                     EventOutboxModel.id.in_(uuid_ids),
@@ -274,7 +273,7 @@ class SqlAlchemyEventOutbox(EventOutbox):
             
             # If max attempts reached, mark as permanently failed
             if model.attempt_count >= max_attempts:
-                model.dispatched_at = datetime.now(timezone.utc)  # Mark as "processed" but failed
+                model.dispatched_at = datetime.now(UTC)  # Mark as "processed" but failed
                 
                 self.logger.error(
                     "event_permanently_failed",
@@ -311,9 +310,9 @@ class SqlAlchemyEventOutbox(EventOutbox):
     
     def get_failed_events(
         self,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         limit: int = 100,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """
         Get events that have permanently failed.
         
@@ -374,7 +373,7 @@ class SqlAlchemyEventOutbox(EventOutbox):
             Number of events cleaned up
         """
         try:
-            cutoff_date = datetime.now(timezone.utc) - datetime.timedelta(days=days_old)
+            cutoff_date = datetime.now(UTC) - datetime.timedelta(days=days_old)
             
             deleted_count = self.session.query(EventOutboxModel).filter(
                 and_(
@@ -405,8 +404,8 @@ class SqlAlchemyEventOutbox(EventOutbox):
     
     def _reconstruct_domain_event(self, model: EventOutboxModel) -> DomainEvent:
         """Reconstruct domain event from outbox model."""
-        from packages.domain.events import DomainEvent
         from packages.domain.enums import EventType
+        from packages.domain.events import DomainEvent
         
         payload = model.payload
         
@@ -436,7 +435,7 @@ class SqlAlchemyEventOutbox(EventOutbox):
         try:
             model.attempt_count += 1
             model.last_error = f"Reconstruction failed: {error_message}"
-            model.dispatched_at = datetime.now(timezone.utc)  # Prevent further processing
+            model.dispatched_at = datetime.now(UTC)  # Prevent further processing
             
             # Session commit will be handled by calling code
             

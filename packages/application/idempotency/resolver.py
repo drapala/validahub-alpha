@@ -2,10 +2,8 @@
 
 import base64
 import hashlib
-import hmac
 import re
 import secrets
-from typing import Optional
 
 from src.application.config import Config, IdempotencyCompatMode
 from src.domain.value_objects import TenantId
@@ -13,7 +11,7 @@ from src.domain.value_objects import TenantId
 # Graceful handling of logging dependencies
 try:
     from shared.logging import get_logger
-    from shared.logging.security import SecurityLogger, SecurityEventType
+    from shared.logging.security import SecurityEventType, SecurityLogger
 except ImportError:
     # Fallback logging for testing without full dependencies
     import logging
@@ -74,7 +72,7 @@ def _safe_base64url_encode(data: bytes) -> str:
 def _canonicalize_key(tenant_id: str, raw_key: str) -> str:
     """Canonicalize legacy key using secure hash."""
     # Create deterministic hash using tenant_id as salt
-    input_data = f"{tenant_id}:{raw_key}".encode('utf-8')
+    input_data = f"{tenant_id}:{raw_key}".encode()
     hash_bytes = hashlib.sha256(input_data).digest()
     
     # Take first 16 bytes and base64url encode (22 chars without padding)
@@ -93,12 +91,12 @@ def _ensure_safe_first_char(key: str) -> str:
 
 def _create_scope_hash(method: str, route_template: str) -> str:
     """Create scope hash for method and route template."""
-    scope_input = f"{method.upper()}:{route_template}".encode('utf-8')
+    scope_input = f"{method.upper()}:{route_template}".encode()
     return hashlib.sha256(scope_input).hexdigest()[:8]
 
 
 def resolve_idempotency_key(
-    raw_key: Optional[str], 
+    raw_key: str | None, 
     tenant_id: TenantId, 
     method: str,
     route_template: str
@@ -138,7 +136,7 @@ def resolve_idempotency_key(
         ksuid = _generate_ksuid_like()
         
         # Create hash input with tenant isolation and scope
-        hash_input = f"{tenant_id.value}:{scope_hash}:{ksuid}".encode('utf-8')
+        hash_input = f"{tenant_id.value}:{scope_hash}:{ksuid}".encode()
         hash_bytes = hashlib.sha256(hash_input).digest()
         
         # Take first 16 bytes and base64url encode for 22-char key

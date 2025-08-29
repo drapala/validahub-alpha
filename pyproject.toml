@@ -102,6 +102,12 @@ select = [
 ignore = [
     "E501",  # line too long (handled by black)
     "PLR0913",  # too many arguments
+    "PLR2004",  # magic value comparison
+    "PLC0415",  # import outside toplevel
+    "PLW0603",  # global statement
+    "C901",  # too complex
+    "B904",  # raise without from
+    "PLR0912",  # too many branches
 ]
 
 [tool.ruff.lint.mccabe]

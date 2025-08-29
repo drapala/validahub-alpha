@@ -1,11 +1,11 @@
 """Idempotency store interface and implementations."""
 
+import hashlib
+import hmac
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
-from typing import Optional, Any
-import hmac
-import hashlib
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from src.domain.value_objects import TenantId
 
@@ -22,7 +22,7 @@ class IdempotencyRecord:
     
     def is_expired(self) -> bool:
         """Check if this record has expired."""
-        return datetime.now(timezone.utc) > self.expires_at
+        return datetime.now(UTC) > self.expires_at
     
     def matches_response(self, response_data: dict[str, Any]) -> bool:
         """Check if response data matches stored hash using constant-time comparison."""
@@ -38,7 +38,7 @@ class IdempotencyStore(ABC):
     """Abstract interface for idempotency storage."""
     
     @abstractmethod
-    def get(self, tenant_id: TenantId, key: str) -> Optional[IdempotencyRecord]:
+    def get(self, tenant_id: TenantId, key: str) -> IdempotencyRecord | None:
         """
         Get idempotency record for tenant and key.
         
@@ -108,7 +108,7 @@ class InMemoryIdempotencyStore(IdempotencyStore):
     def __init__(self):
         self._records: dict[tuple[str, str], IdempotencyRecord] = {}
     
-    def get(self, tenant_id: TenantId, key: str) -> Optional[IdempotencyRecord]:
+    def get(self, tenant_id: TenantId, key: str) -> IdempotencyRecord | None:
         """Get record from memory store."""
         record_key = (tenant_id.value, key)
         record = self._records.get(record_key)
@@ -142,7 +142,7 @@ class InMemoryIdempotencyStore(IdempotencyStore):
         response_hash = hashlib.sha256(response_str.encode('utf-8')).hexdigest()
         
         # Create new record
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record = IdempotencyRecord(
             tenant_id=tenant_id.value,
             key=key,

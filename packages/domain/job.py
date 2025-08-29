@@ -5,18 +5,35 @@ The Job is the main aggregate root that manages CSV processing workflows.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
-from uuid import UUID, uuid4
+from datetime import UTC, datetime
+from typing import Any
+from uuid import uuid4
 
 from .enums import JobStatus, JobType
-from .events import DomainEvent, JobSubmitted, JobStarted, JobSucceeded, JobFailed, JobCancelled, JobRetried, JobExpired
-from .value_objects import JobId, TenantId, Channel, FileReference, RulesProfileId, ProcessingCounters, IdempotencyKey
 from .errors import DomainError, InvalidStateTransitionError
+from .events import (
+    DomainEvent,
+    JobCancelled,
+    JobExpired,
+    JobFailed,
+    JobRetried,
+    JobStarted,
+    JobSubmitted,
+    JobSucceeded,
+)
+from .value_objects import (
+    Channel,
+    FileReference,
+    IdempotencyKey,
+    JobId,
+    ProcessingCounters,
+    RulesProfileId,
+    TenantId,
+)
 
 try:
     from packages.shared.logging import get_logger
-    from packages.shared.logging.security import AuditLogger, AuditEventType
+    from packages.shared.logging.security import AuditEventType, AuditLogger
 except ImportError:
     # Fallback logging for testing without full dependencies
     import logging
@@ -68,18 +85,18 @@ class Job:
     counters: ProcessingCounters = field(default_factory=lambda: ProcessingCounters(0, 0, 0, 0))
     
     # Optional attributes
-    output_ref: Optional[str] = None
-    idempotency_key: Optional[IdempotencyKey] = None
-    callback_url: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    output_ref: str | None = None
+    idempotency_key: IdempotencyKey | None = None
+    callback_url: str | None = None
+    metadata: dict[str, Any] | None = None
     
     # Timestamps
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    completed_at: Optional[datetime] = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
     
     # Event collection for publishing
-    _events: List[DomainEvent] = field(default_factory=list, init=False)
+    _events: list[DomainEvent] = field(default_factory=list, init=False)
     
     def __post_init__(self) -> None:
         """Validate invariants after initialization."""
@@ -126,11 +143,11 @@ class Job:
         job_type: JobType,
         file_ref: FileReference,
         rules_profile_id: RulesProfileId,
-        idempotency_key: Optional[IdempotencyKey] = None,
-        callback_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        idempotency_key: IdempotencyKey | None = None,
+        callback_url: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> "Job":
         """
         Factory method to create a new Job.
@@ -155,7 +172,7 @@ class Job:
         audit_logger = AuditLogger("domain.job")
         
         job_id = JobId(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         
         job = cls(
             id=job_id,
@@ -213,7 +230,7 @@ class Job:
         
         return job
     
-    def start(self, actor_id: Optional[str] = None, trace_id: Optional[str] = None) -> "Job":
+    def start(self, actor_id: str | None = None, trace_id: str | None = None) -> "Job":
         """
         Transition job to RUNNING state.
         
@@ -239,7 +256,7 @@ class Job:
         
         logger = get_logger("domain.job")
         audit_logger = AuditLogger("domain.job")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         
         # Create new job instance with updated state
         new_job = Job(
@@ -294,10 +311,10 @@ class Job:
     def succeed(
         self,
         counters: ProcessingCounters,
-        output_ref: Optional[str] = None,
-        duration_ms: Optional[int] = None,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        output_ref: str | None = None,
+        duration_ms: int | None = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> "Job":
         """
         Mark job as successfully completed.
@@ -326,7 +343,7 @@ class Job:
         
         logger = get_logger("domain.job")
         audit_logger = AuditLogger("domain.job")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         
         # Create new job instance with updated state
         new_job = Job(
@@ -391,11 +408,11 @@ class Job:
         self,
         error_code: str,
         error_message: str,
-        counters: Optional[ProcessingCounters] = None,
-        duration_ms: Optional[int] = None,
+        counters: ProcessingCounters | None = None,
+        duration_ms: int | None = None,
         retry_count: int = 0,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> "Job":
         """
         Mark job as failed.
@@ -426,7 +443,7 @@ class Job:
         
         logger = get_logger("domain.job")
         audit_logger = AuditLogger("domain.job")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         
         # Create new job instance with updated state
         new_job = Job(
@@ -494,8 +511,8 @@ class Job:
     def cancel(
         self,
         reason: str,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> "Job":
         """
         Cancel the job.
@@ -523,7 +540,7 @@ class Job:
         
         logger = get_logger("domain.job")
         audit_logger = AuditLogger("domain.job")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         
         # Create new job instance with updated state
         new_job = Job(
@@ -579,8 +596,8 @@ class Job:
     
     def retry(
         self,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> "Job":
         """
         Create a new job for retry after failure.
@@ -609,7 +626,7 @@ class Job:
         
         # Create new job with same configuration but new ID
         new_job_id = JobId(uuid4())
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         
         retry_job = Job(
             id=new_job_id,
@@ -661,8 +678,8 @@ class Job:
     def expire(
         self,
         ttl_seconds: int,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> "Job":
         """
         Mark job as expired due to timeout.
@@ -689,7 +706,7 @@ class Job:
         
         logger = get_logger("domain.job")
         audit_logger = AuditLogger("domain.job")
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         
         # Create new job instance with updated state
         new_job = Job(
@@ -758,7 +775,7 @@ class Job:
         """Check if job has completed (successfully or with failure)."""
         return self.status.is_completed()
     
-    def get_events(self) -> List[DomainEvent]:
+    def get_events(self) -> list[DomainEvent]:
         """Get collected domain events for publishing."""
         return self._events.copy()
     

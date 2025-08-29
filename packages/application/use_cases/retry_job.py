@@ -10,20 +10,25 @@ This use case orchestrates the job retry process including:
 Following SOLID principles and DDD patterns.
 """
 
-from dataclasses import dataclass
-from typing import Optional
 import time
+from dataclasses import dataclass
 
+from packages.application.ports import (
+    AuditLogger,
+    EventBus,
+    EventOutbox,
+    JobRepository,
+    MetricsCollector,
+    TracingContext,
+)
+from packages.domain.errors import (
+    AggregateNotFoundError,
+    BusinessRuleViolationError,
+    InvalidStateTransitionError,
+    TenantIsolationError,
+)
 from packages.domain.job import Job
 from packages.domain.value_objects import JobId, TenantId
-from packages.domain.errors import (
-    AggregateNotFoundError, InvalidStateTransitionError,
-    TenantIsolationError, BusinessRuleViolationError
-)
-from packages.application.ports import (
-    JobRepository, EventBus, EventOutbox,
-    AuditLogger, MetricsCollector, TracingContext
-)
 
 try:
     from packages.shared.logging import get_logger
@@ -39,9 +44,9 @@ class RetryJobRequest:
     tenant_id: str
     job_id: str
     # Observability context
-    request_id: Optional[str] = None
-    user_id: Optional[str] = None
-    trace_id: Optional[str] = None
+    request_id: str | None = None
+    user_id: str | None = None
+    trace_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -222,7 +227,7 @@ class RetryJobUseCase:
         
         return job
     
-    def _validate_retry_eligibility(self, job: Job, request_id: Optional[str]) -> None:
+    def _validate_retry_eligibility(self, job: Job, request_id: str | None) -> None:
         """Validate that job can be retried."""
         if not job.can_retry():
             self.logger.warning(
@@ -291,7 +296,7 @@ class RetryJobUseCase:
     
     def _record_failure_metrics(
         self,
-        tenant_id: Optional[TenantId],
+        tenant_id: TenantId | None,
         error: Exception,
         start_time: float,
     ) -> None:

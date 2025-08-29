@@ -2,7 +2,6 @@
 
 import os
 from enum import Enum
-from typing import Optional
 
 
 class IdempotencyCompatMode(Enum):
@@ -26,7 +25,7 @@ class Config:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://localhost/validahub")
     
     # Security settings
-    JWT_SECRET_KEY: Optional[str] = os.getenv("JWT_SECRET_KEY")
+    JWT_SECRET_KEY: str | None = os.getenv("JWT_SECRET_KEY")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     
     # CORS settings

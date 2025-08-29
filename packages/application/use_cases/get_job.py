@@ -9,17 +9,20 @@ This use case orchestrates the job retrieval process including:
 Following SOLID principles and DDD patterns.
 """
 
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
 import time
+from dataclasses import dataclass
+from typing import Any
 
+from packages.application.ports import (
+    AuditLogger,
+    AuthenticationService,
+    JobRepository,
+    MetricsCollector,
+    TracingContext,
+)
+from packages.domain.errors import AggregateNotFoundError, TenantIsolationError
 from packages.domain.job import Job
 from packages.domain.value_objects import JobId, TenantId
-from packages.domain.errors import AggregateNotFoundError, TenantIsolationError
-from packages.application.ports import (
-    JobRepository, AuthenticationService, AuditLogger, 
-    MetricsCollector, TracingContext
-)
 
 try:
     from packages.shared.logging import get_logger
@@ -35,9 +38,9 @@ class GetJobRequest:
     tenant_id: str
     job_id: str
     # Observability context
-    request_id: Optional[str] = None
-    user_id: Optional[str] = None
-    trace_id: Optional[str] = None
+    request_id: str | None = None
+    user_id: str | None = None
+    trace_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -50,14 +53,14 @@ class GetJobResponse:
     type: str
     status: str
     file_ref: str
-    output_ref: Optional[str]
+    output_ref: str | None
     rules_profile_id: str
-    counters: Dict[str, int]
-    callback_url: Optional[str]
-    metadata: Optional[Dict[str, Any]]
+    counters: dict[str, int]
+    callback_url: str | None
+    metadata: dict[str, Any] | None
     created_at: str
     updated_at: str
-    completed_at: Optional[str]
+    completed_at: str | None
 
 
 class GetJobUseCase:
@@ -269,7 +272,7 @@ class GetJobUseCase:
     
     def _record_failure_metrics(
         self,
-        tenant_id: Optional[TenantId],
+        tenant_id: TenantId | None,
         error: Exception,
         start_time: float,
     ) -> None:

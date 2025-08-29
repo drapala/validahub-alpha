@@ -2,11 +2,11 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Any, Optional
-from uuid import UUID, uuid4
+from typing import Any
+from uuid import uuid4
 
-from .enums import EventType, JobStatus, JobType
-from .value_objects import JobId, TenantId, ProcessingCounters
+from .enums import EventType, JobType
+from .value_objects import JobId, ProcessingCounters, TenantId
 
 
 @dataclass(frozen=True)
@@ -38,11 +38,11 @@ class DomainEvent:
     datacontenttype: str
     
     # ValidaHub extensions
-    trace_id: Optional[str]
+    trace_id: str | None
     tenant_id: str
-    actor_id: Optional[str]
+    actor_id: str | None
     schema_version: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
     
     @classmethod
     def create(
@@ -50,9 +50,9 @@ class DomainEvent:
         event_type: EventType,
         subject: str,
         tenant_id: TenantId,
-        data: Dict[str, Any],
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        data: dict[str, Any],
+        actor_id: str | None = None,
+        trace_id: str | None = None,
         source: str = "packages/domain",
     ) -> 'DomainEvent':
         """Create a new domain event with CloudEvents structure."""
@@ -71,7 +71,7 @@ class DomainEvent:
             data=data,
         )
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert event to CloudEvents dictionary format."""
         result = {
             "id": self.id,
@@ -109,11 +109,11 @@ class JobSubmitted(DomainEvent):
         job_type: JobType,
         file_ref: str,
         rules_profile_id: str,
-        idempotency_key: Optional[str] = None,
-        callback_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        idempotency_key: str | None = None,
+        callback_url: str | None = None,
+        metadata: dict[str, Any] | None = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> 'JobSubmitted':
         """Create JobSubmitted event."""
         data = {
@@ -153,8 +153,8 @@ class JobStarted(DomainEvent):
         cls,
         job_id: JobId,
         tenant_id: TenantId,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> 'JobStarted':
         """Create JobStarted event."""
         data = {
@@ -185,9 +185,9 @@ class JobSucceeded(DomainEvent):
         tenant_id: TenantId,
         counters: ProcessingCounters,
         duration_ms: int,
-        output_ref: Optional[str] = None,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        output_ref: str | None = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> 'JobSucceeded':
         """Create JobSucceeded event."""
         data = {
@@ -228,11 +228,11 @@ class JobFailed(DomainEvent):
         tenant_id: TenantId,
         error_code: str,
         error_message: str,
-        counters: Optional[ProcessingCounters] = None,
-        duration_ms: Optional[int] = None,
+        counters: ProcessingCounters | None = None,
+        duration_ms: int | None = None,
         retry_count: int = 0,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> 'JobFailed':
         """Create JobFailed event."""
         data = {
@@ -276,9 +276,9 @@ class JobCancelled(DomainEvent):
         job_id: JobId,
         tenant_id: TenantId,
         reason: str,
-        counters: Optional[ProcessingCounters] = None,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        counters: ProcessingCounters | None = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> 'JobCancelled':
         """Create JobCancelled event."""
         data = {
@@ -318,8 +318,8 @@ class JobRetried(DomainEvent):
         tenant_id: TenantId,
         original_job_id: JobId,
         retry_count: int,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> 'JobRetried':
         """Create JobRetried event."""
         data = {
@@ -351,8 +351,8 @@ class JobExpired(DomainEvent):
         job_id: JobId,
         tenant_id: TenantId,
         ttl_seconds: int,
-        actor_id: Optional[str] = None,
-        trace_id: Optional[str] = None,
+        actor_id: str | None = None,
+        trace_id: str | None = None,
     ) -> 'JobExpired':
         """Create JobExpired event."""
         data = {

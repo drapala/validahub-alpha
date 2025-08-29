@@ -27,6 +27,9 @@ from packages.domain.errors import (
     DomainError, RateLimitExceededError, SecurityViolationError,
     TenantIsolationError, IdempotencyViolationError
 )
+from src.application.config import get_config
+from src.infrastructure.auth.jwt_service import JWTService
+from src.infrastructure.middleware.security_headers import SecurityHeadersMiddleware
 
 try:
     from packages.shared.logging import get_logger
@@ -62,6 +65,16 @@ logger = get_logger("apps.api")
 tracer = get_tracer("apps.api")
 metrics = get_metrics()
 security = HTTPBearer()
+config = get_config()
+jwt_service = JWTService(
+    public_key=config.JWT_PUBLIC_KEY,
+    private_key=config.JWT_PRIVATE_KEY,
+    algorithm=config.JWT_ALGORITHM,
+    issuer=config.JWT_ISSUER,
+    audience=config.JWT_AUDIENCE,
+    token_ttl_seconds=config.JWT_ACCESS_TOKEN_TTL,
+    refresh_ttl_seconds=config.JWT_REFRESH_TOKEN_TTL,
+)
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -248,25 +261,16 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
     
     async def _validate_token(self, token: str) -> Dict[str, Any]:
         """
-        Validate JWT token and extract claims.
+        Validate JWT token and extract claims using secure JWT service.
         
-        This is a mock implementation. In production, you would:
-        1. Verify JWT signature using public key
-        2. Validate token expiration
-        3. Check token revocation status
-        4. Extract and validate claims
+        This validates:
+        1. JWT signature using public key (RS256/ES256)
+        2. Token expiration and not-before times
+        3. Token revocation status
+        4. Issuer and audience claims
+        5. Required claims (sub, jti, exp, iat)
         """
-        # Mock token validation
-        if token == "invalid":
-            raise ValueError("Invalid token")
-        
-        # Return mock claims
-        return {
-            "sub": "user_123",
-            "tenants": ["t_123", "t_456"],
-            "scopes": ["jobs:read", "jobs:write"],
-            "exp": int(time.time()) + 3600,
-        }
+        return await jwt_service.validate_token(token)
 
 
 @asynccontextmanager
@@ -298,15 +302,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add security middleware
-app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])  # Configure for production
+# Add security middleware with proper configuration
+app.add_middleware(
+    TrustedHostMiddleware, 
+    allowed_hosts=config.TRUSTED_HOSTS
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Configure for production
+    allow_origins=config.CORS_ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["X-Tenant-Id", "X-Request-Id", "Idempotency-Key", "Content-Type", "Authorization"],
+    max_age=3600,
 )
+
+# Add security headers middleware
+if config.SECURITY_HEADERS_ENABLED:
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        csp_policy=config.CSP_POLICY,
+        enable_hsts=(config.ENVIRONMENT.value == "production"),
+        enable_nosniff=True,
+        enable_xfo=True,
+        xfo_option="DENY",
+        enable_xss_protection=True,
+        referrer_policy="strict-origin-when-cross-origin",
+    )
 
 # Add custom middleware
 app.add_middleware(AuthenticationMiddleware)

@@ -3,25 +3,26 @@ Context management for structured logging.
 """
 
 import uuid
+from collections.abc import Callable
 from contextvars import ContextVar
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import Any, TypeVar
 
 import structlog
 
 # Context variables for request tracking
-_request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
-_correlation_id: ContextVar[Optional[str]] = ContextVar("correlation_id", default=None)
-_tenant_id: ContextVar[Optional[str]] = ContextVar("tenant_id", default=None)
-_actor_id: ContextVar[Optional[str]] = ContextVar("actor_id", default=None)
+_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
+_correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+_tenant_id: ContextVar[str | None] = ContextVar("tenant_id", default=None)
+_actor_id: ContextVar[str | None] = ContextVar("actor_id", default=None)
 
 T = TypeVar("T")
 
 
 def with_request_context(
-    request_id: Optional[str] = None,
-    correlation_id: Optional[str] = None,
-    tenant_id: Optional[str] = None,
-    actor_id: Optional[str] = None,
+    request_id: str | None = None,
+    correlation_id: str | None = None,
+    tenant_id: str | None = None,
+    actor_id: str | None = None,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
     Decorator to add request context to all logs within a function.
@@ -110,22 +111,22 @@ def generate_correlation_id() -> str:
     return f"corr_{uuid.uuid4().hex[:16]}"
 
 
-def get_correlation_id() -> Optional[str]:
+def get_correlation_id() -> str | None:
     """Get the current correlation ID from context."""
     return _correlation_id.get()
 
 
-def get_request_id() -> Optional[str]:
+def get_request_id() -> str | None:
     """Get the current request ID from context."""
     return _request_id.get()
 
 
-def get_tenant_id() -> Optional[str]:
+def get_tenant_id() -> str | None:
     """Get the current tenant ID from context."""
     return _tenant_id.get()
 
 
-def inject_correlation_id(headers: Dict[str, str]) -> Dict[str, str]:
+def inject_correlation_id(headers: dict[str, str]) -> dict[str, str]:
     """
     Inject correlation ID into HTTP headers for distributed tracing.
     

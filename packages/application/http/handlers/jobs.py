@@ -1,20 +1,23 @@
 """HTTP handlers for job-related endpoints with secure idempotency."""
 
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
 import uuid
+from dataclasses import dataclass
+from typing import Any
 
-from src.application.config import Config, IdempotencyCompatMode
+from src.application.config import Config
 from src.application.errors import RateLimitExceeded, ValidationError
-from src.application.idempotency.store import IdempotencyStore, IdempotencyConflictError
 from src.application.idempotency.resolver import resolve_idempotency_key, validate_resolved_key
-from src.application.use_cases.submit_job import SubmitJobUseCase, SubmitJobRequest, SubmitJobResponse
+from src.application.idempotency.store import IdempotencyConflictError, IdempotencyStore
+from src.application.use_cases.submit_job import (
+    SubmitJobRequest,
+    SubmitJobUseCase,
+)
 from src.domain.value_objects import TenantId
 
 # Graceful handling of logging dependencies
 try:
     from shared.logging import get_logger
-    from shared.logging.security import SecurityLogger, SecurityEventType
+    from shared.logging.security import SecurityEventType, SecurityLogger
 except ImportError:
     # Fallback logging for testing without full dependencies
     import logging
@@ -44,8 +47,8 @@ class HttpJobSubmissionRequest:
     rules_profile_id: str
     
     # HTTP headers
-    idempotency_key_raw: Optional[str] = None
-    request_id: Optional[str] = None
+    idempotency_key_raw: str | None = None
+    request_id: str | None = None
     
     # HTTP context
     method: str = "POST"
@@ -66,7 +69,7 @@ class HttpJobSubmissionResponse:
     request_id: str
     is_idempotent_replay: bool = False
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
             "job_id": self.job_id,
@@ -256,7 +259,7 @@ class JobsHttpHandler:
             raise
 
 
-def get_idempotency_key_header(headers: Dict[str, str]) -> Optional[str]:
+def get_idempotency_key_header(headers: dict[str, str]) -> str | None:
     """
     Extract idempotency key from HTTP headers.
     
@@ -284,7 +287,7 @@ def get_idempotency_key_header(headers: Dict[str, str]) -> Optional[str]:
     return None
 
 
-def get_request_id_header(headers: Dict[str, str]) -> Optional[str]:
+def get_request_id_header(headers: dict[str, str]) -> str | None:
     """
     Extract request ID from HTTP headers.
     

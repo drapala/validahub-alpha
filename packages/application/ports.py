@@ -12,14 +12,13 @@ Ports are organized by:
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Dict, Any, AsyncIterator
-from datetime import datetime
-from uuid import UUID
+from collections.abc import AsyncIterator
+from typing import Any
 
-from packages.domain.job import Job
-from packages.domain.events import DomainEvent
-from packages.domain.value_objects import JobId, TenantId, IdempotencyKey
 from packages.domain.enums import JobStatus, JobType
+from packages.domain.events import DomainEvent
+from packages.domain.job import Job
+from packages.domain.value_objects import IdempotencyKey, JobId, TenantId
 
 
 # Persistence Ports
@@ -44,7 +43,7 @@ class JobRepository(ABC):
         pass
     
     @abstractmethod
-    def find_by_id(self, tenant_id: TenantId, job_id: JobId) -> Optional[Job]:
+    def find_by_id(self, tenant_id: TenantId, job_id: JobId) -> Job | None:
         """
         Find job by ID within tenant context.
         
@@ -62,7 +61,7 @@ class JobRepository(ABC):
         self, 
         tenant_id: TenantId, 
         key: IdempotencyKey
-    ) -> Optional[Job]:
+    ) -> Job | None:
         """
         Find job by tenant and idempotency key.
         
@@ -79,11 +78,11 @@ class JobRepository(ABC):
     def find_by_tenant(
         self,
         tenant_id: TenantId,
-        status: Optional[JobStatus] = None,
-        job_type: Optional[JobType] = None,
+        status: JobStatus | None = None,
+        job_type: JobType | None = None,
         limit: int = 20,
         offset: int = 0,
-    ) -> List[Job]:
+    ) -> list[Job]:
         """
         Find jobs by tenant with optional filtering.
         
@@ -103,8 +102,8 @@ class JobRepository(ABC):
     def count_by_tenant(
         self,
         tenant_id: TenantId,
-        status: Optional[JobStatus] = None,
-        job_type: Optional[JobType] = None,
+        status: JobStatus | None = None,
+        job_type: JobType | None = None,
     ) -> int:
         """
         Count jobs by tenant with optional filtering.
@@ -124,7 +123,7 @@ class EventOutbox(ABC):
     """Port for reliable event publishing using outbox pattern."""
     
     @abstractmethod
-    def store_events(self, events: List[DomainEvent], correlation_id: Optional[str] = None) -> None:
+    def store_events(self, events: list[DomainEvent], correlation_id: str | None = None) -> None:
         """
         Store events in outbox for later publishing.
         
@@ -135,7 +134,7 @@ class EventOutbox(ABC):
         pass
     
     @abstractmethod
-    def get_pending_events(self, limit: int = 100) -> List[DomainEvent]:
+    def get_pending_events(self, limit: int = 100) -> list[DomainEvent]:
         """
         Get pending events for publishing.
         
@@ -148,7 +147,7 @@ class EventOutbox(ABC):
         pass
     
     @abstractmethod
-    def mark_published(self, event_ids: List[str]) -> None:
+    def mark_published(self, event_ids: list[str]) -> None:
         """
         Mark events as successfully published.
         
@@ -173,7 +172,7 @@ class EventBus(ABC):
         pass
     
     @abstractmethod
-    def publish_batch(self, events: List[DomainEvent]) -> None:
+    def publish_batch(self, events: list[DomainEvent]) -> None:
         """
         Publish multiple domain events as a batch.
         
@@ -190,9 +189,9 @@ class NotificationService(ABC):
     def send_webhook(
         self,
         url: str,
-        payload: Dict[str, Any],
-        headers: Optional[Dict[str, str]] = None,
-        tenant_id: Optional[str] = None,
+        payload: dict[str, Any],
+        headers: dict[str, str] | None = None,
+        tenant_id: str | None = None,
     ) -> None:
         """
         Send webhook notification.
@@ -264,7 +263,7 @@ class ObjectStorage(ABC):
         pass
     
     @abstractmethod
-    def get_object_metadata(self, bucket: str, key: str) -> Optional[Dict[str, Any]]:
+    def get_object_metadata(self, bucket: str, key: str) -> dict[str, Any] | None:
         """
         Get object metadata.
         
@@ -302,7 +301,7 @@ class RateLimiter(ABC):
         pass
     
     @abstractmethod
-    def get_limit_info(self, tenant_id: TenantId, resource: str) -> Dict[str, Any]:
+    def get_limit_info(self, tenant_id: TenantId, resource: str) -> dict[str, Any]:
         """
         Get current rate limit information.
         
@@ -320,7 +319,7 @@ class AuthenticationService(ABC):
     """Port for JWT authentication and authorization."""
     
     @abstractmethod
-    def validate_token(self, token: str) -> Dict[str, Any]:
+    def validate_token(self, token: str) -> dict[str, Any]:
         """
         Validate JWT token and extract claims.
         
@@ -367,13 +366,13 @@ class AuditLogger(ABC):
         self,
         event_type: str,
         tenant_id: str,
-        user_id: Optional[str],
+        user_id: str | None,
         resource_type: str,
         resource_id: str,
         action: str,
         result: str,
         request_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """
         Log audit event with immutable record.
@@ -399,7 +398,7 @@ class MetricsCollector(ABC):
     def increment_counter(
         self,
         name: str,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
         value: int = 1,
     ) -> None:
         """
@@ -417,7 +416,7 @@ class MetricsCollector(ABC):
         self,
         name: str,
         value: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> None:
         """
         Record a histogram metric.
@@ -434,7 +433,7 @@ class MetricsCollector(ABC):
         self,
         name: str,
         value: float,
-        tags: Optional[Dict[str, str]] = None,
+        tags: dict[str, str] | None = None,
     ) -> None:
         """
         Set a gauge metric.
@@ -454,7 +453,7 @@ class TracingContext(ABC):
     def create_span(
         self,
         operation_name: str,
-        parent_context: Optional[str] = None,
+        parent_context: str | None = None,
     ) -> str:
         """
         Create a new tracing span.
@@ -472,8 +471,8 @@ class TracingContext(ABC):
     def finish_span(
         self,
         span_context: str,
-        tags: Optional[Dict[str, Any]] = None,
-        error: Optional[Exception] = None,
+        tags: dict[str, Any] | None = None,
+        error: Exception | None = None,
     ) -> None:
         """
         Finish a tracing span.

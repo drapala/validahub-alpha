@@ -1,16 +1,16 @@
 """Value Objects for ValidaHub domain."""
 
-from dataclasses import dataclass
-from typing import ClassVar
 import re
 import unicodedata
+from dataclasses import dataclass
+from typing import ClassVar
 from urllib.parse import urlparse
 from uuid import UUID
 
 # Graceful handling of logging dependencies
 try:
     from shared.logging import get_logger
-    from shared.logging.security import SecurityLogger, SecurityEventType
+    from shared.logging.security import SecurityEventType, SecurityLogger
 except ImportError:
     # Fallback logging for testing without full dependencies
     import logging
