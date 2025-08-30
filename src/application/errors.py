@@ -3,11 +3,11 @@
 
 class ApplicationError(Exception):
     """Base exception for all application layer errors."""
-    
+
     def __init__(self, message: str) -> None:
         """
         Initialize application error.
-        
+
         Args:
             message: Error message (must be PII-safe)
         """
@@ -17,11 +17,11 @@ class ApplicationError(Exception):
 
 class RateLimitExceeded(ApplicationError):
     """Raised when rate limit is exceeded for a tenant."""
-    
+
     def __init__(self, tenant_id: str, resource: str) -> None:
         """
         Initialize rate limit exceeded error.
-        
+
         Args:
             tenant_id: Tenant identifier
             resource: Rate-limited resource name
@@ -35,11 +35,11 @@ class RateLimitExceeded(ApplicationError):
 
 class ValidationError(ApplicationError):
     """Raised when input validation fails."""
-    
+
     def __init__(self, field: str, message: str) -> None:
         """
         Initialize validation error.
-        
+
         Args:
             field: Field name that failed validation
             message: Error message (must be PII-safe)

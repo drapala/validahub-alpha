@@ -3,9 +3,9 @@ LGPD-compliant data sanitizers for logging.
 """
 
 import re
-from typing import Any, Dict, List, Optional, Union
-from structlog.types import EventDict, WrappedLogger
+from typing import Any
 
+from structlog.types import EventDict, WrappedLogger
 
 # Sensitive field patterns that should be masked
 SENSITIVE_PATTERNS = [
@@ -42,10 +42,10 @@ PARTIAL_MASK_FIELDS = {
 class LGPDProcessor:
     """
     Structlog processor for LGPD compliance.
-    
+
     Automatically masks sensitive data in log events.
     """
-    
+
     def __call__(
         self,
         logger: WrappedLogger,
@@ -56,18 +56,18 @@ class LGPDProcessor:
         return sanitize_for_log(event_dict)
 
 
-def sanitize_for_log(data: Dict[str, Any]) -> Dict[str, Any]:
+def sanitize_for_log(data: dict[str, Any]) -> dict[str, Any]:
     """
     Sanitize a dictionary for LGPD-compliant logging.
-    
+
     Args:
         data: Dictionary to sanitize
-        
+
     Returns:
         Sanitized dictionary with masked sensitive data
     """
     sanitized = {}
-    
+
     for key, value in data.items():
         # Check if field name indicates sensitive data
         if _is_sensitive_field(key):
@@ -84,29 +84,28 @@ def sanitize_for_log(data: Dict[str, Any]) -> Dict[str, Any]:
         # Sanitize lists
         elif isinstance(value, list):
             sanitized[key] = [
-                sanitize_for_log(item) if isinstance(item, dict) else item
-                for item in value
+                sanitize_for_log(item) if isinstance(item, dict) else item for item in value
             ]
         else:
             sanitized[key] = value
-    
+
     return sanitized
 
 
 def mask_sensitive_data(data_type: str, value: str) -> str:
     """
     Mask sensitive data according to its type.
-    
+
     Args:
         data_type: Type of data to mask
         value: Value to mask
-        
+
     Returns:
         Masked value
     """
     if not value:
         return "***"
-    
+
     maskers = {
         "tenant_id": _mask_tenant_id,
         "idempotency_key": _mask_idempotency_key,
@@ -116,7 +115,7 @@ def mask_sensitive_data(data_type: str, value: str) -> str:
         "seller_id": lambda v: _mask_id(v, "seller"),
         "job_id": lambda v: _mask_id(v, "job"),
     }
-    
+
     masker = maskers.get(data_type, lambda v: "***MASKED***")
     return masker(value)
 

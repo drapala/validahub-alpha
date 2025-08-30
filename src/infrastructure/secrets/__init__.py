@@ -4,7 +4,7 @@ from .doppler_client import DopplerClient, DopplerConfig, SecretsManager, get_se
 
 __all__ = [
     "DopplerClient",
-    "DopplerConfig", 
+    "DopplerConfig",
     "SecretsManager",
     "get_secrets_manager",
 ]

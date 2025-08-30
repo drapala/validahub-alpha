@@ -10,11 +10,11 @@ from src.infrastructure.secrets.secrets_adapter import get_secrets_adapter
 def bootstrap_config() -> Config:
     """
     Bootstrap application configuration with proper dependency injection.
-    
+
     This function serves as the composition root for configuration,
     ensuring clean architecture by keeping infrastructure dependencies
     out of the application layer.
-    
+
     Returns:
         Configured Config instance
     """
@@ -25,10 +25,10 @@ def bootstrap_config() -> Config:
 def get_bootstrapped_config() -> Config:
     """
     Get configuration with bootstrap applied.
-    
+
     This is the preferred way to get configuration in the infrastructure
     layer and above (API layer, etc.).
-    
+
     Returns:
         Configured Config instance
     """

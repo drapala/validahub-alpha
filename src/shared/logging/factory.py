@@ -3,25 +3,23 @@ Logging factory with structured logging and LGPD compliance.
 """
 
 import os
-import sys
-from typing import Any, Dict, Optional
 
 import structlog
 from structlog.contextvars import merge_contextvars
 from structlog.processors import (
-    TimeStamper,
-    add_log_level,
     CallsiteParameter,
     CallsiteParameterAdder,
     ExceptionPrettyPrinter,
     JSONRenderer,
     KeyValueRenderer,
+    TimeStamper,
     UnicodeDecoder,
+    add_log_level,
 )
 from structlog.stdlib import (
+    BoundLogger,
     ProcessorFormatter,
     add_logger_name,
-    BoundLogger,
 )
 
 from .sanitizers import LGPDProcessor
@@ -30,10 +28,10 @@ from .sanitizers import LGPDProcessor
 def get_logger(name: str) -> BoundLogger:
     """
     Get a structured logger with ValidaHub context.
-    
+
     Args:
         name: Logger name (e.g., "domain.job", "application.submit_job")
-        
+
     Returns:
         Configured structured logger with LGPD compliance
     """
@@ -52,14 +50,14 @@ def configure_logging(
 ) -> None:
     """
     Configure structured logging for ValidaHub.
-    
+
     Args:
         environment: Environment name (development, staging, production)
         log_level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         json_logs: Whether to output JSON formatted logs
         include_caller_info: Include file, function, and line number
     """
-    
+
     # Common processors for all environments
     processors = [
         # Add contextual variables from context vars
@@ -75,7 +73,7 @@ def configure_logging(
         # LGPD compliance - mask sensitive data
         LGPDProcessor(),
     ]
-    
+
     # Add caller information in development
     if include_caller_info and environment == "development":
         processors.append(
@@ -88,17 +86,17 @@ def configure_logging(
                 additional_ignores=["structlog", "logging"],
             )
         )
-    
+
     # Add exception formatting
     if environment == "development":
         processors.append(ExceptionPrettyPrinter())
-    
+
     # Choose renderer based on environment
     if json_logs:
         processors.append(JSONRenderer(sort_keys=True))
     else:
         processors.append(KeyValueRenderer(key_order=["timestamp", "level", "event", "logger"]))
-    
+
     # Configure structlog
     structlog.configure(
         processors=processors,
@@ -106,13 +104,13 @@ def configure_logging(
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    
+
     # Configure standard library logging to use structlog
     import logging
-    
+
     handler = logging.StreamHandler()
     handler.setFormatter(ProcessorFormatter(processors=processors))
-    
+
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
@@ -122,7 +120,7 @@ def configure_logging(
 def _get_log_level_int(level: str) -> int:
     """Convert string log level to integer."""
     import logging
-    
+
     levels = {
         "DEBUG": logging.DEBUG,
         "INFO": logging.INFO,

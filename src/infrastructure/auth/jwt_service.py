@@ -4,33 +4,28 @@ This module provides secure JWT token validation and generation
 using PyJWT with RS256/ES256 algorithms for production security.
 """
 
-import json
-import time
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import jwt
-from jwt import PyJWKClient
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa, ec
 from cryptography.hazmat.backends import default_backend
-
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from jwt import PyJWKClient
 from packages.domain.errors import SecurityViolationError
 from packages.shared.logging import get_logger
-
 
 logger = get_logger("infrastructure.auth.jwt_service")
 
 
 class JWTService:
     """Service for JWT token validation and generation with strong security."""
-    
+
     def __init__(
         self,
-        public_key: Optional[str] = None,
-        private_key: Optional[str] = None,
-        jwks_url: Optional[str] = None,
+        public_key: str | None = None,
+        private_key: str | None = None,
+        jwks_url: str | None = None,
         algorithm: str = "RS256",
         issuer: str = "validahub",
         audience: str = "validahub-api",
@@ -40,7 +35,7 @@ class JWTService:
     ):
         """
         Initialize JWT service with asymmetric keys.
-        
+
         Args:
             public_key: Public key for verification (PEM format)
             private_key: Private key for signing (PEM format, optional)
@@ -58,7 +53,7 @@ class JWTService:
         self.token_ttl_seconds = token_ttl_seconds
         self.refresh_ttl_seconds = refresh_ttl_seconds
         self.clock_skew_seconds = clock_skew_seconds
-        
+
         # Setup verification
         if jwks_url:
             self.jwks_client = PyJWKClient(jwks_url)
@@ -68,13 +63,13 @@ class JWTService:
             self.jwks_client = None
         else:
             raise ValueError("Either public_key or jwks_url must be provided")
-        
+
         # Setup signing (optional, only if we issue tokens)
         self.private_key = private_key
-        
+
         # Token revocation cache (would use Redis in production)
         self._revoked_tokens: set[str] = set()
-        
+
         logger.info(
             "jwt_service_initialized",
             algorithm=algorithm,
@@ -82,35 +77,32 @@ class JWTService:
             audience=audience,
             using_jwks=bool(jwks_url),
         )
-    
-    async def validate_token(self, token: str) -> Dict[str, Any]:
+
+    async def validate_token(self, token: str) -> dict[str, Any]:
         """
         Validate JWT token and extract claims.
-        
+
         Args:
             token: JWT token string
-            
+
         Returns:
             Decoded token claims
-            
+
         Raises:
             SecurityViolationError: If token is invalid
         """
         try:
             # Check revocation
             if token in self._revoked_tokens:
-                raise SecurityViolationError(
-                    message="Token has been revoked",
-                    code="TOKEN_REVOKED"
-                )
-            
+                raise SecurityViolationError(message="Token has been revoked", code="TOKEN_REVOKED")
+
             # Get verification key
             if self.jwks_client:
                 signing_key = self.jwks_client.get_signing_key_from_jwt(token)
                 verification_key = signing_key.key
             else:
                 verification_key = self.public_key
-            
+
             # Decode and validate token
             claims = jwt.decode(
                 token,
@@ -129,10 +121,10 @@ class JWTService:
                 },
                 leeway=timedelta(seconds=self.clock_skew_seconds),
             )
-            
+
             # Additional validation
             self._validate_claims(claims)
-            
+
             # Log successful validation
             logger.info(
                 "token_validated",
@@ -141,25 +133,19 @@ class JWTService:
                 scopes=claims.get("scopes", []),
                 tenants=claims.get("tenants", []),
             )
-            
+
             return claims
-            
+
         except jwt.ExpiredSignatureError:
             logger.warning("token_expired", token_jti=self._extract_jti(token))
-            raise SecurityViolationError(
-                message="Token has expired",
-                code="TOKEN_EXPIRED"
-            )
+            raise SecurityViolationError(message="Token has expired", code="TOKEN_EXPIRED")
         except jwt.InvalidTokenError as e:
             logger.warning(
                 "token_invalid",
                 error=str(e),
                 token_jti=self._extract_jti(token),
             )
-            raise SecurityViolationError(
-                message="Invalid token",
-                code="TOKEN_INVALID"
-            )
+            raise SecurityViolationError(message="Invalid token", code="TOKEN_INVALID")
         except Exception as e:
             logger.error(
                 "token_validation_error",
@@ -167,44 +153,35 @@ class JWTService:
                 error_type=e.__class__.__name__,
             )
             raise SecurityViolationError(
-                message="Token validation failed",
-                code="TOKEN_VALIDATION_FAILED"
+                message="Token validation failed", code="TOKEN_VALIDATION_FAILED"
             )
-    
-    def _validate_claims(self, claims: Dict[str, Any]) -> None:
+
+    def _validate_claims(self, claims: dict[str, Any]) -> None:
         """Validate token claims for business rules."""
         # Check required claims
         if not claims.get("sub"):
             raise SecurityViolationError(
-                message="Token missing subject claim",
-                code="INVALID_CLAIMS"
+                message="Token missing subject claim", code="INVALID_CLAIMS"
             )
-        
+
         # Check token type
         token_type = claims.get("token_type", "access")
         if token_type not in ["access", "refresh"]:
             raise SecurityViolationError(
-                message=f"Invalid token type: {token_type}",
-                code="INVALID_TOKEN_TYPE"
+                message=f"Invalid token type: {token_type}", code="INVALID_TOKEN_TYPE"
             )
-        
+
         # Validate scopes format
         scopes = claims.get("scopes", [])
         if not isinstance(scopes, list):
-            raise SecurityViolationError(
-                message="Invalid scopes format",
-                code="INVALID_SCOPES"
-            )
-        
+            raise SecurityViolationError(message="Invalid scopes format", code="INVALID_SCOPES")
+
         # Validate tenants format
         tenants = claims.get("tenants", [])
         if not isinstance(tenants, list):
-            raise SecurityViolationError(
-                message="Invalid tenants format",
-                code="INVALID_TENANTS"
-            )
-    
-    def _extract_jti(self, token: str) -> Optional[str]:
+            raise SecurityViolationError(message="Invalid tenants format", code="INVALID_TENANTS")
+
+    def _extract_jti(self, token: str) -> str | None:
         """Extract JTI from token without full validation."""
         try:
             # Decode without verification to get JTI
@@ -216,58 +193,55 @@ class JWTService:
             return unverified.get("jti")
         except:
             return None
-    
+
     async def revoke_token(self, token: str) -> None:
         """
         Revoke a token by adding it to revocation list.
-        
+
         In production, this would use Redis with TTL.
         """
         jti = self._extract_jti(token)
         if jti:
             self._revoked_tokens.add(token)
             logger.info("token_revoked", jti=jti)
-    
+
     async def generate_token(
         self,
         user_id: str,
-        scopes: List[str],
-        tenants: List[str],
+        scopes: list[str],
+        tenants: list[str],
         token_type: str = "access",
-        additional_claims: Optional[Dict[str, Any]] = None,
+        additional_claims: dict[str, Any] | None = None,
     ) -> str:
         """
         Generate a new JWT token (only if private key is configured).
-        
+
         Args:
             user_id: User identifier
             scopes: List of permission scopes
             tenants: List of allowed tenant IDs
             token_type: Type of token (access or refresh)
             additional_claims: Extra claims to include
-            
+
         Returns:
             Signed JWT token
-            
+
         Raises:
             ValueError: If private key is not configured
         """
         if not self.private_key:
             raise ValueError("Private key required for token generation")
-        
+
         # Determine TTL based on token type
-        ttl = (
-            self.token_ttl_seconds
-            if token_type == "access"
-            else self.refresh_ttl_seconds
-        )
-        
+        ttl = self.token_ttl_seconds if token_type == "access" else self.refresh_ttl_seconds
+
         # Generate unique JTI
         import uuid
+
         jti = str(uuid.uuid4())
-        
+
         # Build claims
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         claims = {
             "sub": user_id,
             "iss": self.issuer,
@@ -280,18 +254,18 @@ class JWTService:
             "scopes": scopes,
             "tenants": tenants,
         }
-        
+
         # Add additional claims
         if additional_claims:
             claims.update(additional_claims)
-        
+
         # Generate token
         token = jwt.encode(
             claims,
             self.private_key,
             algorithm=self.algorithm,
         )
-        
+
         logger.info(
             "token_generated",
             user_id=user_id,
@@ -300,13 +274,13 @@ class JWTService:
             scopes=scopes,
             tenants=tenants,
         )
-        
+
         return token
 
 
 class JWTKeyGenerator:
     """Utility for generating JWT signing keys (development only)."""
-    
+
     @staticmethod
     def generate_rsa_keys() -> tuple[str, str]:
         """Generate RSA key pair for RS256."""
@@ -315,24 +289,24 @@ class JWTKeyGenerator:
             key_size=2048,
             backend=default_backend(),
         )
-        
+
         private_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
-        
+
         public_key = private_key.public_key()
         public_pem = public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-        
+
         return (
             public_pem.decode("utf-8"),
             private_pem.decode("utf-8"),
         )
-    
+
     @staticmethod
     def generate_ec_keys() -> tuple[str, str]:
         """Generate EC key pair for ES256."""
@@ -340,19 +314,19 @@ class JWTKeyGenerator:
             ec.SECP256R1(),
             backend=default_backend(),
         )
-        
+
         private_pem = private_key.private_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
-        
+
         public_key = private_key.public_key()
         public_pem = public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-        
+
         return (
             public_pem.decode("utf-8"),
             private_pem.decode("utf-8"),

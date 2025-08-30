@@ -5,40 +5,46 @@ Sistema de regras agnostic para marketplaces com compilação YAML → IR → Ru
 """
 
 from .ccm import CCM, CanonicalCSVModel
-from .compiler import RuleCompiler, CompilationError
-from .runtime import RuleExecutionEngine, ExecutionResult
+from .compiler import CompilationError, RuleCompiler
 from .ir_types import (
-    CompiledRuleSet, CompiledRule, CompiledCondition, CompiledAction,
-    CCMMapping, FieldMapping, Transform,
-    ActionType, ConditionType, RuleScope, Severity, ExecutionMode
+    ActionType,
+    CCMMapping,
+    CompiledAction,
+    CompiledCondition,
+    CompiledRule,
+    CompiledRuleSet,
+    ConditionType,
+    ExecutionMode,
+    FieldMapping,
+    RuleScope,
+    Severity,
+    Transform,
 )
+from .runtime import ExecutionResult, RuleExecutionEngine
 
 __version__ = "1.0.0"
 
 __all__ = [
     # Core classes
     "RuleCompiler",
-    "RuleExecutionEngine", 
+    "RuleExecutionEngine",
     "CCM",
     "CanonicalCSVModel",
-    
     # Data structures
     "CompiledRuleSet",
-    "CompiledRule", 
+    "CompiledRule",
     "CompiledCondition",
     "CompiledAction",
     "CCMMapping",
     "FieldMapping",
     "Transform",
     "ExecutionResult",
-    
     # Enums
     "ActionType",
-    "ConditionType", 
+    "ConditionType",
     "RuleScope",
     "Severity",
     "ExecutionMode",
-    
     # Exceptions
     "CompilationError",
 ]

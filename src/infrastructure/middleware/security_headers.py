@@ -4,19 +4,18 @@ This module provides comprehensive security headers to protect
 against common web vulnerabilities.
 """
 
-from typing import Dict, Optional
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from starlette.responses import Response
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Middleware to add security headers to all responses."""
-    
+
     def __init__(
         self,
         app,
-        csp_policy: Optional[str] = None,
+        csp_policy: str | None = None,
         enable_hsts: bool = True,
         hsts_max_age: int = 31536000,
         hsts_include_subdomains: bool = True,
@@ -26,11 +25,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         xfo_option: str = "DENY",
         enable_xss_protection: bool = True,
         referrer_policy: str = "strict-origin-when-cross-origin",
-        permissions_policy: Optional[str] = None,
+        permissions_policy: str | None = None,
     ):
         """
         Initialize security headers middleware.
-        
+
         Args:
             app: ASGI application
             csp_policy: Content Security Policy directive
@@ -57,7 +56,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         self.enable_xss_protection = enable_xss_protection
         self.referrer_policy = referrer_policy
         self.permissions_policy = permissions_policy or self._default_permissions()
-    
+
     def _default_csp(self) -> str:
         """Return default Content Security Policy."""
         return (
@@ -72,7 +71,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "base-uri 'self'; "
             "upgrade-insecure-requests;"
         )
-    
+
     def _default_permissions(self) -> str:
         """Return default Permissions Policy."""
         return (
@@ -85,15 +84,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "payment=(), "
             "usb=()"
         )
-    
+
     async def dispatch(self, request: Request, call_next):
         """Add security headers to response."""
         response = await call_next(request)
-        
+
         # Content Security Policy
         if self.csp_policy:
             response.headers["Content-Security-Policy"] = self.csp_policy
-        
+
         # HTTP Strict Transport Security
         if self.enable_hsts:
             hsts_value = f"max-age={self.hsts_max_age}"
@@ -102,64 +101,61 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             if self.hsts_preload:
                 hsts_value += "; preload"
             response.headers["Strict-Transport-Security"] = hsts_value
-        
+
         # X-Content-Type-Options
         if self.enable_nosniff:
             response.headers["X-Content-Type-Options"] = "nosniff"
-        
+
         # X-Frame-Options
         if self.enable_xfo:
             response.headers["X-Frame-Options"] = self.xfo_option
-        
+
         # X-XSS-Protection
         if self.enable_xss_protection:
             response.headers["X-XSS-Protection"] = "1; mode=block"
-        
+
         # Referrer-Policy
         if self.referrer_policy:
             response.headers["Referrer-Policy"] = self.referrer_policy
-        
+
         # Permissions-Policy
         if self.permissions_policy:
             response.headers["Permissions-Policy"] = self.permissions_policy
-        
+
         # Additional security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
-        
+
         return response
 
 
-def get_security_headers(config) -> Dict[str, str]:
+def get_security_headers(config) -> dict[str, str]:
     """
     Get security headers based on configuration.
-    
+
     Args:
         config: Application configuration object
-        
+
     Returns:
         Dictionary of security headers
     """
     headers = {}
-    
+
     if config.SECURITY_HEADERS_ENABLED:
         # CSP
         headers["Content-Security-Policy"] = config.CSP_POLICY
-        
+
         # HSTS (only in production)
         if config.ENVIRONMENT.value == "production":
-            headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains; preload"
-            )
-        
+            headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+
         # Other security headers
         headers["X-Content-Type-Options"] = "nosniff"
         headers["X-Frame-Options"] = "DENY"
         headers["X-XSS-Protection"] = "1; mode=block"
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         headers["Permissions-Policy"] = (
-            "accelerometer=(), camera=(), geolocation=(), "
-            "microphone=(), payment=(), usb=()"
+            "accelerometer=(), camera=(), geolocation=(), " "microphone=(), payment=(), usb=()"
         )
-    
+
     return headers
