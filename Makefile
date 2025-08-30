@@ -47,6 +47,22 @@ db.reset: ## Reset database (development only)
 		make db.migrate; \
 	fi
 
+db.partitions.setup: ## Set up automated partition management
+	@echo "Setting up partition management..."
+	docker-compose exec -T postgres psql -U validahub -d validahub -f /docker-entrypoint-initdb.d/setup_partition_automation.sql
+	@echo "✅ Partition automation configured"
+
+db.partitions.check: ## Check partition health status
+	@echo "Checking partition health..."
+	@docker-compose exec -T postgres psql -U validahub -d validahub -c "SELECT * FROM check_partition_health();"
+
+db.partitions.maintain: ## Manually run partition maintenance
+	@echo "Running partition maintenance..."
+	@docker-compose exec -T postgres psql -U validahub -d validahub -c "SELECT maintain_partitions();"
+
+db.partitions.status: ## View current partition status
+	@docker-compose exec -T postgres psql -U validahub -d validahub -c "SELECT * FROM partition_status ORDER BY partition_month DESC;"
+
 # Contracts
 contracts.gen: ## Generate TypeScript types from OpenAPI
 	@echo "Generating TypeScript types from OpenAPI..."
