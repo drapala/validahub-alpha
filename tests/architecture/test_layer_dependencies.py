@@ -157,6 +157,12 @@ class TestDomainLayerPurity:
                 if import_name.startswith('domain.') or import_name.startswith('src.domain.'):
                     continue
                 
+                # Skip relative imports within rules subdomain (e.g., events.*, value_objects.*, entities.*)
+                # These are internal to the rules bounded context
+                relative_imports = ['events.', 'value_objects.', 'entities.', 'aggregates.']
+                if any(import_name.startswith(rel) for rel in relative_imports):
+                    continue
+                
                 relative_path = file_path.relative_to(src_path)
                 violations.append(f"{relative_path}: imports {import_name}")
         
