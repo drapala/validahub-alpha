@@ -6,14 +6,14 @@ only happen through proper domain methods.
 
 Tests cover:
 - RuleSet aggregate immutable collections (versions, published_versions, deprecated_versions) ✅
-- RuleVersion entity rules field (IMPLEMENTATION INCOMPLETE - still uses List) ❌
+- RuleVersion entity rules field (now uses Tuple, immutable) ✅
 - Proper error handling for mutation attempts
 - Query methods returning immutable collections
 - Edge cases (empty collections, single items)
 
 CURRENT STATE ANALYSIS:
 - RuleSet: ✅ Fully implements immutable design with Tuple collections
-- RuleVersion: ❌ Type annotations show Tuple but runtime uses List (needs fix)
+- RuleVersion: ✅ Fully implements immutable design with Tuple for rules field
 
 Note: In Python 3.13, `dataclasses.replace()` raises an error when used with frozen dataclasses
 (see https://github.com/python/cpython/issues/103349 and Python 3.13 release notes). As a result,

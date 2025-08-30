@@ -575,8 +575,12 @@ def normalize_yaml(yaml_content: str) -> str:
 
 def calculate_checksum(yaml_content: str, compiler_version: str) -> str:
     """Calculate deterministic checksum for IR."""
+    import json
+    import hashlib
+    
     normalized_yaml = normalize_yaml(yaml_content)
-    combined = f"{normalized_yaml}|{compiler_version}"
+    # Use JSON array to avoid separator ambiguity and hash collisions
+    combined = json.dumps([normalized_yaml, compiler_version])
     return hashlib.sha256(combined.encode()).hexdigest()
 ```
 

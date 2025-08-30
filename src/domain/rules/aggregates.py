@@ -9,6 +9,13 @@ from typing import List, Optional, Dict, Any, Tuple, Mapping
 from uuid import uuid4
 
 from src.domain.value_objects import TenantId, Channel
+from .exceptions import (
+    VersionAlreadyExistsError,
+    VersionNotFoundError,
+    VersionSequenceError,
+    CompatibilityPolicyViolationError,
+    CurrentVersionError,
+)
 from .value_objects import (
     RuleSetId,
     RuleStatus,
@@ -175,14 +182,14 @@ class RuleSet:
         # Check version doesn't already exist
         for existing in self.versions:
             if existing.version == version.version:
-                raise ValueError(f"Version {version.version} already exists")
+                raise VersionAlreadyExistsError(str(version.version))
         
         # Check version sequence (new version should be higher)
         if self.versions:
             # Use SemVer's built-in comparison
             latest = max(self.versions, key=lambda v: v.version)
             if not version.version.is_newer_than(latest.version):
-                raise ValueError("New version must be higher than existing versions")
+                raise VersionSequenceError()
         
         # Check backward compatibility if required
         if self.current_version and self.compatibility_policy.get("enforce_compatibility"):
@@ -190,7 +197,7 @@ class RuleSet:
             if current:
                 compat = version.is_backward_compatible_with(current)
                 if compat == Compatibility.MAJOR and not self.compatibility_policy.get("allow_breaking"):
-                    raise ValueError("Breaking changes not allowed by policy")
+                    raise CompatibilityPolicyViolationError()
         
         new_versions = self.versions + (version,)
         new_rule_set = replace(
@@ -240,10 +247,10 @@ class RuleSet:
         """
         rule_version = self._get_version(version)
         if not rule_version:
-            raise ValueError(f"Version {version} not found")
+            raise VersionNotFoundError(str(version))
         
         if version in self.published_versions:
-            raise ValueError(f"Version {version} already published")
+            raise VersionAlreadyExistsError(f"{version} (already published)")
         
         # Publish the version
         published_version = rule_version.publish(checksum, published_by)
@@ -307,14 +314,14 @@ class RuleSet:
             ValueError: If version not found or is current version
         """
         if version == self.current_version:
-            raise ValueError("Cannot deprecate current version")
+            raise CurrentVersionError("Cannot deprecate current version")
         
         rule_version = self._get_version(version)
         if not rule_version:
-            raise ValueError(f"Version {version} not found")
+            raise VersionNotFoundError(str(version))
         
         if version in self.deprecated_versions:
-            raise ValueError(f"Version {version} already deprecated")
+            raise VersionAlreadyExistsError(f"{version} (already deprecated)")
         
         # Deprecate the version
         deprecated_version = rule_version.deprecate(deprecated_by, reason)
@@ -379,13 +386,13 @@ class RuleSet:
             ValueError: If version not found or not published
         """
         if version not in self.published_versions:
-            raise ValueError(f"Version {version} is not published")
+            raise VersionNotFoundError(f"{version} (not published)")
         
         if version in self.deprecated_versions:
-            raise ValueError(f"Cannot rollback to deprecated version {version}")
+            raise CurrentVersionError(f"Cannot rollback to deprecated version {version}")
         
         if version == self.current_version:
-            raise ValueError(f"Already at version {version}")
+            raise CurrentVersionError(f"Already at version {version}")
         
         previous_version = self.current_version
         

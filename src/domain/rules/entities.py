@@ -9,6 +9,11 @@ from typing import List, Optional, Dict, Any, Tuple
 from uuid import uuid4
 
 from src.domain.value_objects import TenantId
+from .exceptions import (
+    InvalidStateTransitionError,
+    EmptyRuleSetError,
+    DuplicateRuleIdError,
+)
 from .value_objects import (
     RuleVersionId,
     RuleDefinition,
@@ -59,19 +64,19 @@ class RuleVersion:
         """Validate entity invariants."""
         # Validate rules list is not empty
         if not self.rules:
-            raise ValueError("Rule version must contain at least one rule")
+            raise EmptyRuleSetError()
         
         # Validate unique rule IDs within version
         rule_ids = [str(rule.id) for rule in self.rules]
         if len(rule_ids) != len(set(rule_ids)):
-            raise ValueError("Duplicate rule IDs within version")
+            raise DuplicateRuleIdError()
         
         # Validate status transitions
         if self.status == RuleStatus.VALIDATED and self.validation_errors:
-            raise ValueError("Validated rules cannot have validation errors")
+            raise InvalidStateTransitionError(self.status.value, "have validation errors")
         
         if self.status == RuleStatus.PUBLISHED and not self.checksum:
-            raise ValueError("Published rules must have a checksum")
+            raise InvalidStateTransitionError(self.status.value, "publish without checksum")
     
     @classmethod
     def create(
@@ -158,7 +163,7 @@ class RuleVersion:
             ValueError: If transition is not allowed
         """
         if self.status != RuleStatus.DRAFT:
-            raise ValueError(f"Cannot validate rules in {self.status.value} status")
+            raise InvalidStateTransitionError(self.status.value, "validate")
         
         new_status = RuleStatus.VALIDATED if validation_result else RuleStatus.DRAFT
         new_version = replace(
@@ -203,7 +208,7 @@ class RuleVersion:
             ValueError: If transition is not allowed
         """
         if self.status != RuleStatus.VALIDATED:
-            raise ValueError(f"Cannot publish rules in {self.status.value} status")
+            raise InvalidStateTransitionError(self.status.value, "publish")
         
         new_version = replace(
             self,
@@ -234,7 +239,7 @@ class RuleVersion:
             ValueError: If transition is not allowed
         """
         if self.status != RuleStatus.PUBLISHED:
-            raise ValueError(f"Cannot deprecate rules in {self.status.value} status")
+            raise InvalidStateTransitionError(self.status.value, "deprecate")
         
         # Update compatibility notes if reason provided
         updated_notes = self.compatibility_notes or {}
