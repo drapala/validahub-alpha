@@ -3,13 +3,13 @@
 This module contains immutable value objects with validation and invariants.
 """
 
+import json
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import ClassVar, Optional, Dict, Any, List
+from typing import Any, ClassVar, Dict, List, Optional
 from uuid import UUID
-import re
-import json
 
 
 class RuleStatus(Enum):

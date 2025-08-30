@@ -6,6 +6,7 @@ All external dependencies must be implemented through these interfaces.
 
 from abc import ABC, abstractmethod
 
+from src.domain.events import DomainEvent
 from src.domain.job import Job
 from src.domain.value_objects import IdempotencyKey, TenantId
 

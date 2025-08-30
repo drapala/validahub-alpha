@@ -5,30 +5,31 @@ This module contains the RuleSet aggregate root following DDD principles.
 
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any, Tuple, Mapping
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 from uuid import uuid4
 
-from src.domain.value_objects import TenantId, Channel
-from .exceptions import (
-    VersionAlreadyExistsError,
-    VersionNotFoundError,
-    VersionSequenceError,
-    CompatibilityPolicyViolationError,
-    CurrentVersionError,
-)
-from .value_objects import (
-    RuleSetId,
-    RuleStatus,
-    SemVer,
-    Compatibility,
-)
+from src.domain.value_objects import Channel, TenantId
+
 from .entities import RuleVersion
 from .events import (
     RuleSetCreatedEvent,
-    RuleSetPublishedEvent,
     RuleSetDeprecatedEvent,
-    RuleVersionAddedEvent,
+    RuleSetPublishedEvent,
     RuleSetRolledBackEvent,
+    RuleVersionAddedEvent,
+)
+from .exceptions import (
+    CompatibilityPolicyViolationError,
+    CurrentVersionError,
+    VersionAlreadyExistsError,
+    VersionNotFoundError,
+    VersionSequenceError,
+)
+from .value_objects import (
+    Compatibility,
+    RuleSetId,
+    RuleStatus,
+    SemVer,
 )
 
 

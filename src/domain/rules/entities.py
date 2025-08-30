@@ -5,26 +5,27 @@ This module contains entities that belong to the RuleSet aggregate.
 
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
 from src.domain.value_objects import TenantId
+
+from .events import (
+    RuleValidatedEvent,
+    RuleVersionCreatedEvent,
+)
 from .exceptions import (
-    InvalidStateTransitionError,
-    EmptyRuleSetError,
     DuplicateRuleIdError,
+    EmptyRuleSetError,
+    InvalidStateTransitionError,
 )
 from .value_objects import (
-    RuleVersionId,
-    RuleDefinition,
-    RuleStatus,
-    SemVer,
     Compatibility,
+    RuleDefinition,
     RuleMetadata,
-)
-from .events import (
-    RuleVersionCreatedEvent,
-    RuleValidatedEvent,
+    RuleStatus,
+    RuleVersionId,
+    SemVer,
 )
 
 

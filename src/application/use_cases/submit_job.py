@@ -118,7 +118,7 @@ class SubmitJobUseCase:
             RateLimitExceeded: If rate limit exceeded
         """
         use_case_start = time.time()
-        correlation_id = get_correlation_id()
+        correlation_id = str(uuid4())  # Generate correlation ID for request tracking
 
         # Log detailed request with performance tracking
         self._logger.info(
@@ -135,7 +135,7 @@ class SubmitJobUseCase:
         # Validate input with timing
         validation_start = time.time()
         try:
-            self._validate_request(request)
+            self._validate_request(request, correlation_id)
             validation_duration_ms = (time.time() - validation_start) * 1000
             self._logger.debug(
                 "request_validation_successful",
@@ -386,8 +386,10 @@ class SubmitJobUseCase:
             created_at=saved_job.created_at.isoformat(),
         )
 
-    def _validate_request(self, request: SubmitJobRequest) -> None:
+    def _validate_request(self, request: SubmitJobRequest, correlation_id: str | None = None) -> None:
         """Validate job submission request with detailed logging."""
+        if correlation_id is None:
+            correlation_id = str(uuid4())
         validation_errors = []
 
         # Validate required fields
@@ -404,7 +406,7 @@ class SubmitJobUseCase:
             self._logger.debug(
                 "validation_failed_required_fields",
                 errors=validation_errors,
-                correlation_id=get_correlation_id(),
+                correlation_id=correlation_id,
             )
             raise ValueError("; ".join(validation_errors))
 
@@ -438,7 +440,7 @@ class SubmitJobUseCase:
         self._logger.debug(
             "request_validation_passed",
             tenant_id=request.tenant_id,
-            correlation_id=get_correlation_id(),
+            correlation_id=correlation_id,
         )
 
 

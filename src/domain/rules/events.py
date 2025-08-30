@@ -5,11 +5,10 @@ This module defines domain events specific to the Rules context.
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from src.domain.events import DomainEvent
-
 
 # RuleSet Events
 

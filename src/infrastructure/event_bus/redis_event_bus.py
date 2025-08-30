@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from src.application.ports import EventBus
+from src.domain.events import DomainEvent
 from src.infrastructure.logging.utilities import LoggingPort, log_event_publish
 
 from shared.logging.context import get_correlation_id
