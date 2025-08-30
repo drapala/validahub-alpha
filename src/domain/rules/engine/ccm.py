@@ -673,37 +673,18 @@ class CanonicalCSVModel:
     
     def _validate_date(self, field_def: CCMField, value: Any) -> CCMValidationResult:
         """Valida campo data."""
-        from datetime import datetime
-        
-        date_str = str(value).strip()
-        parsed_date = None
-        
-        # Try common date formats
-        date_formats = [
-            '%Y-%m-%d',      # ISO format
-            '%d/%m/%Y',      # Brazilian format
-            '%m/%d/%Y',      # US format
-            '%Y/%m/%d',      # Alternative ISO
-            '%d-%m-%Y',      # European format with dashes
-            '%Y-%m-%d %H:%M:%S',  # ISO with time
-            '%d/%m/%Y %H:%M:%S',  # Brazilian with time
-        ]
-        
-        for fmt in date_formats:
-            try:
-                parsed_date = datetime.strptime(date_str, fmt)
-                break
-            except ValueError:
-                continue
-        
-        if parsed_date:
+        # NOTE: This parsing logic should be moved to application layer
+        # For now, using dateutil as a pragmatic choice
+        try:
+            import dateutil.parser as parser
+            parsed_date = parser.parse(str(value))
             return CCMValidationResult(
                 field=field_def.name,
                 is_valid=True,
                 original_value=value,
                 normalized_value=parsed_date.isoformat()
             )
-        else:
+        except (ValueError, TypeError):
             return CCMValidationResult(
                 field=field_def.name,
                 is_valid=False,
@@ -848,30 +829,11 @@ class CanonicalCSVModel:
     
     def _normalize_date(self, value: Any) -> str:
         """Normaliza data."""
-        from datetime import datetime
-        
-        date_str = str(value).strip()
-        
-        # Try common date formats
-        date_formats = [
-            '%Y-%m-%d',      # ISO format
-            '%d/%m/%Y',      # Brazilian format
-            '%m/%d/%Y',      # US format
-            '%Y/%m/%d',      # Alternative ISO
-            '%d-%m-%Y',      # European format with dashes
-            '%Y-%m-%d %H:%M:%S',  # ISO with time
-            '%d/%m/%Y %H:%M:%S',  # Brazilian with time
-        ]
-        
-        for fmt in date_formats:
-            try:
-                parsed_date = datetime.strptime(date_str, fmt)
-                return parsed_date.isoformat()
-            except ValueError:
-                continue
-        
-        # If no format matches, return original value
-        return date_str
+        # NOTE: This parsing logic should be moved to application layer
+        # For now, using dateutil as a pragmatic choice
+        import dateutil.parser as parser
+        parsed_date = parser.parse(str(value))
+        return parsed_date.isoformat()
     
     def _normalize_currency(self, value: Any) -> str:
         """Normaliza moeda."""
