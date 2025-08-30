@@ -102,6 +102,13 @@ Every operation generates CloudEvents with full audit trail:
 - `IdempotencyKey`: Prevents duplicate submissions
 - `RulesProfileId`: Marketplace rule version tracking
 
+### Parsing External Data
+
+We use the **Factory Pattern** for all external data parsing:
+- Factories live in `application/factories/`
+- Domain expects parsed objects (datetime, Decimal, etc.)
+- See [Factory Pattern Documentation](docs/patterns/factory-pattern-for-parsing.md)
+
 ## Testing Strategy
 
 ### Test Organization
