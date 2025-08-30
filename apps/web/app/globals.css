@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Monaco Editor Customization */
+.monaco-editor-container {
+  @apply border rounded-lg overflow-hidden;
+}
+
+.monaco-editor .margin {
+  @apply bg-muted/50;
+}
+
+/* Rule Builder Styles */
+.rule-builder-grid {
+  @apply grid gap-4;
+  grid-template-columns: 1fr 2fr 1fr;
+}
+
+@media (max-width: 1024px) {
+  .rule-builder-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Drag and Drop Styles */
+.sortable-item {
+  @apply transition-all duration-200;
+}
+
+.sortable-item.dragging {
+  @apply opacity-50 scale-95;
+}
+
+.drop-zone {
+  @apply border-2 border-dashed border-muted-foreground/25 rounded-lg p-4 transition-colors;
+}
+
+.drop-zone.active {
+  @apply border-primary bg-primary/5;
+}
+
+/* Analytics Dashboard */
+.analytics-grid {
+  @apply grid gap-6;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.metric-card {
+  @apply relative overflow-hidden;
+}
+
+.metric-card::before {
+  content: '';
+  @apply absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 transition-opacity;
+}
+
+.metric-card:hover::before {
+  @apply opacity-100;
+}
+
+/* Real-time indicators */
+.pulse-dot {
+  @apply w-2 h-2 rounded-full bg-green-500 animate-pulse;
+}
+
+.status-indicator {
+  @apply inline-flex items-center gap-1.5 text-xs font-medium;
+}
+
+.status-indicator.online {
+  @apply text-green-600 dark:text-green-400;
+}
+
+.status-indicator.offline {
+  @apply text-red-600 dark:text-red-400;
+}
+
+.status-indicator.connecting {
+  @apply text-yellow-600 dark:text-yellow-400;
+}
+
+/* Notification styles */
+.notification-enter {
+  @apply transform translate-x-full opacity-0;
+}
+
+.notification-enter-active {
+  @apply transform translate-x-0 opacity-100 transition-all duration-300;
+}
+
+.notification-exit {
+  @apply transform translate-x-0 opacity-100;
+}
+
+.notification-exit-active {
+  @apply transform translate-x-full opacity-0 transition-all duration-300;
+}
