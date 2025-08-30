@@ -179,8 +179,8 @@ class RuleSet:
         
         # Check version sequence (new version should be higher)
         if self.versions:
-            # Use numeric comparison via tuple (major, minor, patch)
-            latest = max(self.versions, key=lambda v: (v.version.major, v.version.minor, v.version.patch))
+            # Use SemVer's built-in comparison
+            latest = max(self.versions, key=lambda v: v.version)
             if not version.version.is_newer_than(latest.version):
                 raise ValueError("New version must be higher than existing versions")
         
@@ -421,8 +421,8 @@ class RuleSet:
         """Get the latest version (published or not)."""
         if not self.versions:
             return None
-        # Use numeric comparison via tuple (major, minor, patch)
-        return max(self.versions, key=lambda v: (v.version.major, v.version.minor, v.version.patch))
+        # Use SemVer's built-in comparison
+        return max(self.versions, key=lambda v: v.version)
     
     def get_published_versions(self) -> Tuple[RuleVersion, ...]:
         """Get all published versions."""
@@ -455,8 +455,8 @@ class RuleSet:
         if not candidates:
             return None
         
-        # Sort by priority and version (using numeric comparison)
-        candidates.sort(key=lambda x: (x[1], x[0].version.major, x[0].version.minor, x[0].version.patch), reverse=True)
+        # Sort by priority and version (using SemVer comparison)
+        candidates.sort(key=lambda x: (x[1], x[0].version), reverse=True)
         return candidates[0][0]
     
     def _get_version(self, version: SemVer) -> Optional[RuleVersion]:

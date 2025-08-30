@@ -99,11 +99,15 @@ class RuleVersion:
         Returns:
             New RuleVersion instance in DRAFT status with domain events
         """
+        # Validate rules input type
+        if not isinstance(rules, (list, tuple)):
+            raise TypeError(f"Rules must be list or tuple, got {type(rules).__name__}")
+        
         rule_version = cls(
             id=RuleVersionId(uuid4()),
             version=version,
             status=RuleStatus.DRAFT,
-            rules=tuple(rules) if isinstance(rules, list) else rules,
+            rules=tuple(rules),
             metadata=RuleMetadata(
                 created_by=created_by,
                 created_at=datetime.now(timezone.utc),

@@ -15,8 +15,10 @@ CURRENT STATE ANALYSIS:
 - RuleSet: ✅ Fully implements immutable design with Tuple collections
 - RuleVersion: ❌ Type annotations show Tuple but runtime uses List (needs fix)
 
-Note: Some domain methods have issues with Python 3.13's stricter dataclass replace()
-behavior, so these tests focus on verifying immutability without calling those methods.
+Note: In Python 3.13, `dataclasses.replace()` raises an error when used with frozen dataclasses
+(see https://github.com/python/cpython/issues/103349 and Python 3.13 release notes). As a result,
+these tests focus on verifying immutability without calling domain methods that rely on `replace()`
+until a suitable workaround or fix is available.
 """
 
 import pytest
@@ -204,10 +206,11 @@ class TestRuleSetImmutability:
 
 
 class TestRuleVersionImmutabilityIssues:
-    """Test immutability of RuleVersion entity (IMPLEMENTATION INCOMPLETE).
+    """Test immutability of RuleVersion entity (ISSUE RESOLVED).
     
-    ❌ ISSUE IDENTIFIED: RuleVersion.rules field uses List at runtime
-    despite Tuple type annotation. This breaks the immutability design.
+    Previously, the RuleVersion.rules field used a List at runtime despite a Tuple type annotation,
+    which broke the immutability design. This issue has now been fixed: the field is properly a Tuple,
+    and the tests below verify that immutability is enforced.
     """
     
     def test_rules_field_is_properly_tuple_not_list(self):

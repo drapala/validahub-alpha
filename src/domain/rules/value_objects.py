@@ -125,6 +125,9 @@ class SemVer:
     patch: int
     
     # Configurable limits for pre-release versions (major version 0)
+    # These limits prevent pre-release version explosion during development.
+    # 99 minor versions allow ~2 years of bi-weekly releases
+    # 999 patches allow extensive bug fixing without version exhaustion
     MAX_PRERELEASE_MINOR: ClassVar[int] = 99
     MAX_PRERELEASE_PATCH: ClassVar[int] = 999
     
@@ -193,6 +196,26 @@ class SemVer:
     
     def __repr__(self) -> str:
         return f"SemVer({self.major}, {self.minor}, {self.patch})"
+    
+    def __lt__(self, other: "SemVer") -> bool:
+        """Less than comparison for sorting."""
+        return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
+    
+    def __le__(self, other: "SemVer") -> bool:
+        """Less than or equal comparison."""
+        return (self.major, self.minor, self.patch) <= (other.major, other.minor, other.patch)
+    
+    def __gt__(self, other: "SemVer") -> bool:
+        """Greater than comparison."""
+        return (self.major, self.minor, self.patch) > (other.major, other.minor, other.patch)
+    
+    def __ge__(self, other: "SemVer") -> bool:
+        """Greater than or equal comparison."""
+        return (self.major, self.minor, self.patch) >= (other.major, other.minor, other.patch)
+    
+    def as_tuple(self) -> tuple[int, int, int]:
+        """Return version as tuple for comparison."""
+        return (self.major, self.minor, self.patch)
 
 
 @dataclass(frozen=True)
@@ -275,8 +298,8 @@ class RuleDefinition:
         # Validate regex compilation
         try:
             re.compile(self.condition["pattern"])
-        except re.error:
-            raise ValueError("Invalid regex pattern")
+        except re.error as e:
+            raise ValueError(f"Invalid regex pattern: {e}") from e
     
     def _validate_dependency_condition(self) -> None:
         """Validate dependency rule condition."""

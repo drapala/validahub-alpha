@@ -555,6 +555,24 @@ interface PathAST {
 The IR checksum ensures cache invalidation when source changes:
 
 ```python
+def normalize_yaml(yaml_content: str) -> str:
+    """Normalize YAML for deterministic comparison.
+    
+    This ensures the same logical YAML produces the same checksum regardless
+    of formatting differences like whitespace, key ordering, or comments.
+    """
+    import yaml
+    import json
+    
+    # Parse YAML to Python objects
+    data = yaml.safe_load(yaml_content)
+    
+    # Convert to JSON with sorted keys for deterministic output
+    # JSON ensures consistent formatting and key ordering
+    normalized = json.dumps(data, sort_keys=True, separators=(',', ':'))
+    
+    return normalized
+
 def calculate_checksum(yaml_content: str, compiler_version: str) -> str:
     """Calculate deterministic checksum for IR."""
     normalized_yaml = normalize_yaml(yaml_content)
