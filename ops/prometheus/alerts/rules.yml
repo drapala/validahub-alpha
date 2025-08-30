@@ -1,0 +1,476 @@
+# ValidaHub Smart Rules Engine - Prometheus Alert Rules
+# 
+# This file defines comprehensive alerting rules for the Smart Rules Engine
+# covering SLO monitoring, performance degradation, and business impact alerts.
+#
+# SLO Thresholds:
+# - F1 Score: ≥ 0.5 (Alert if < 0.5)
+# - P95 Latency: ≤ 800ms (Alert if > 800ms) 
+# - Cache Hit Rate: ≥ 0.9 (Alert if < 0.9)
+# - Accuracy: ≥ 0.85 (Alert if < 0.85)
+# - Availability: ≥ 99.5% (Alert if < 99.5%)
+
+groups:
+  - name: validahub.rules_engine.slo
+    interval: 30s
+    rules:
+      # Critical SLO Violations - Page immediately
+      
+      - alert: RulesEngineF1ScoreBelowSLO
+        expr: |
+          avg by (tenant_id, channel, ruleset_id) (
+            rules_effectiveness_f1_score{tenant_id!=""}
+          ) < 0.5
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+          service: rules-engine
+          slo: f1_score
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/f1-score-low"
+        annotations:
+          summary: "Rules Engine F1 Score below SLO threshold"
+          description: >
+            F1 Score for ruleset {{ $labels.ruleset_id }} in channel {{ $labels.channel }}
+            has been {{ $value | humanizePercentage }} for more than 5 minutes, which is
+            below the SLO threshold of 50%. This indicates poor rule effectiveness and
+            may impact business validation quality.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Ruleset: {{ $labels.ruleset_id }}
+            Current F1: {{ $value | humanizePercentage }}
+          playbook: |
+            1. Check recent rule changes or deployments
+            2. Review rule performance metrics dashboard
+            3. Analyze validation results for false positives/negatives
+            4. Consider rolling back to previous rule version
+            5. Escalate to ML team if issue persists > 15 minutes
+
+      - alert: RulesEngineP95LatencyAboveSLO
+        expr: |
+          histogram_quantile(0.95,
+            rate(rules_execution_duration_ms_bucket{tenant_id!=""}[5m])
+          ) > 800
+        for: 2m
+        labels:
+          severity: critical
+          team: platform
+          service: rules-engine
+          slo: latency
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/high-latency"
+        annotations:
+          summary: "Rules Engine P95 latency above SLO threshold"
+          description: >
+            P95 execution latency for {{ $labels.channel }} rules has been
+            {{ $value }}ms for more than 2 minutes, exceeding the SLO threshold
+            of 800ms. This will impact job processing times and user experience.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Current P95: {{ $value }}ms
+            SLO Threshold: 800ms
+          playbook: |
+            1. Check system resources (CPU, memory, I/O)
+            2. Review cache hit rates and performance
+            3. Identify slow rules using individual rule metrics
+            4. Check for data volume spikes or complex rule conditions
+            5. Consider scaling rules engine workers
+            6. Escalate to platform team if issue persists > 10 minutes
+
+      - alert: RulesEngineCacheHitRateBelowSLO
+        expr: |
+          avg by (tenant_id) (
+            rules_cache_hit_rate{tenant_id!=""}
+          ) < 90
+        for: 3m
+        labels:
+          severity: warning
+          team: platform
+          service: rules-engine
+          slo: cache_efficiency
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/low-cache-hits"
+        annotations:
+          summary: "Rules Engine cache hit rate below SLO threshold"
+          description: >
+            Cache hit rate has been {{ $value }}% for more than 3 minutes,
+            which is below the SLO threshold of 90%. This indicates cache
+            inefficiency and will impact execution performance.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Current Hit Rate: {{ $value }}%
+            SLO Threshold: 90%
+          playbook: |
+            1. Check cache memory usage and eviction patterns
+            2. Review rule condition complexity and cacheability
+            3. Analyze cache key distribution for hot spots
+            4. Consider increasing cache size or TTL
+            5. Monitor memory usage to prevent OOM conditions
+
+      # Performance Degradation Alerts
+
+      - alert: RulesEngineHighErrorRate
+        expr: |
+          (
+            sum by (tenant_id, channel) (
+              rate(rules_executions_total{status="failed", tenant_id!=""}[5m])
+            )
+            /
+            sum by (tenant_id, channel) (
+              rate(rules_executions_total{tenant_id!=""}[5m])
+            )
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/high-error-rate"
+        annotations:
+          summary: "High error rate in Rules Engine execution"
+          description: >
+            Error rate for {{ $labels.channel }} rules execution is {{ $value | humanizePercentage }}
+            over the last 5 minutes, exceeding the 5% threshold. This indicates
+            systemic issues with rule processing.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Error Rate: {{ $value | humanizePercentage }}
+          playbook: |
+            1. Check recent error logs and exception patterns
+            2. Review rule compilation status for failures
+            3. Verify data format compatibility with rule expectations
+            4. Check system resource constraints
+            5. Monitor for cascading failures across channels
+
+      - alert: RulesEngineHighMemoryUsage
+        expr: |
+          avg by (tenant_id) (
+            rules_memory_usage_mb{tenant_id!=""}
+          ) > 800
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/high-memory"
+        annotations:
+          summary: "Rules Engine high memory usage"
+          description: >
+            Memory usage has been {{ $value }}MB for more than 5 minutes,
+            approaching the 1GB limit. This may lead to OOM conditions and
+            performance degradation.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Current Usage: {{ $value }}MB
+            Limit: 1024MB
+          playbook: |
+            1. Check for memory leaks in rule processing
+            2. Review cache size and eviction policies
+            3. Monitor for large dataset processing
+            4. Consider reducing concurrent rule executions
+            5. Analyze memory allocation patterns by rule type
+
+      - alert: RulesEngineLowThroughput
+        expr: |
+          avg by (tenant_id, channel) (
+            rules_throughput_rows_per_second{tenant_id!=""}
+          ) < 50
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/low-throughput"
+        annotations:
+          summary: "Rules Engine throughput below expected baseline"
+          description: >
+            Processing throughput for {{ $labels.channel }} has been
+            {{ $value }} rows/second for more than 10 minutes, which is below
+            the baseline of 50 rows/second. This may indicate performance issues.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Current Throughput: {{ $value }} rows/sec
+            Baseline: 50 rows/sec
+          playbook: |
+            1. Check system resource utilization
+            2. Review rule complexity and optimization opportunities
+            3. Analyze data characteristics for processing bottlenecks
+            4. Monitor for lock contention or blocking operations
+            5. Consider rule execution parallelization
+
+  - name: validahub.rules_engine.business
+    interval: 60s
+    rules:
+      # Business Impact Alerts
+      
+      - alert: RulesEngineHighViolationRate
+        expr: |
+          (
+            sum by (tenant_id, channel) (
+              rate(rules_violations_total{tenant_id!=""}[10m])
+            ) * 60
+          ) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: business
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/high-violations"
+        annotations:
+          summary: "Unusually high rule violation rate detected"
+          description: >
+            Violation rate for {{ $labels.channel }} is {{ $value }}/minute
+            over the last 10 minutes, exceeding the threshold of 1000/minute.
+            This may indicate data quality issues or overly strict rules.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Violation Rate: {{ $value }}/min
+          playbook: |
+            1. Check for data quality regressions in upstream systems
+            2. Review recent rule changes for over-sensitivity
+            3. Analyze violation patterns by rule type
+            4. Coordinate with business team on rule adjustments
+            5. Monitor business impact on seller onboarding
+
+      - alert: RulesEngineRevenueDrop
+        expr: |
+          (
+            sum by (tenant_id, channel) (
+              rate(rules_business_impact_brl{tenant_id!=""}[30m])
+            ) * 60
+          ) < 500
+        for: 15m
+        labels:
+          severity: warning
+          team: business
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/revenue-drop"
+        annotations:
+          summary: "Significant drop in revenue protection detected"
+          description: >
+            Revenue protection rate for {{ $labels.channel }} has dropped to
+            {{ $value }} BRL/minute over the last 30 minutes, below the expected
+            baseline of 500 BRL/minute. This may indicate reduced rule effectiveness.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Current Rate: {{ $value }} BRL/min
+            Baseline: 500 BRL/min
+          playbook: |
+            1. Check rule effectiveness metrics (F1 score, precision, recall)
+            2. Review recent rule deployments or configuration changes
+            3. Analyze marketplace activity levels and validation volumes
+            4. Coordinate with business team on impact assessment
+            5. Consider reverting to previous rule version if needed
+
+  - name: validahub.rules_engine.availability
+    interval: 30s
+    rules:
+      # System Availability Alerts
+      
+      - alert: RulesEngineServiceDown
+        expr: |
+          up{job="rules-engine"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/service-down"
+        annotations:
+          summary: "Rules Engine service is down"
+          description: >
+            Rules Engine instance {{ $labels.instance }} has been down for more
+            than 1 minute. This will prevent all rule processing and impact
+            validation operations.
+            
+            Instance: {{ $labels.instance }}
+            Job: {{ $labels.job }}
+          playbook: |
+            1. Check service health and restart if necessary
+            2. Review system logs for crash causes
+            3. Verify resource availability (CPU, memory, disk)
+            4. Check dependencies (database, cache, message queue)
+            5. Escalate to on-call engineer immediately
+            6. Activate backup/standby services if available
+
+      - alert: RulesEngineCompilationFailures
+        expr: |
+          (
+            sum by (tenant_id, channel) (
+              rate(rules_compilations_total{status="failed", tenant_id!=""}[5m])
+            )
+            /
+            sum by (tenant_id, channel) (
+              rate(rules_compilations_total{tenant_id!=""}[5m])
+            )
+          ) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          team: platform
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/compilation-failures"
+        annotations:
+          summary: "High rate of rule compilation failures"
+          description: >
+            Compilation failure rate for {{ $labels.channel }} rules is
+            {{ $value | humanizePercentage }} over the last 5 minutes, exceeding
+            the 10% threshold. This will prevent rule updates and deployments.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Failure Rate: {{ $value | humanizePercentage }}
+          playbook: |
+            1. Check rule YAML syntax and format validity
+            2. Review compilation error logs for common patterns
+            3. Verify rule schema compatibility with engine version
+            4. Check for resource constraints during compilation
+            5. Validate rule references and dependencies
+
+      - alert: RulesEngineStaleCache
+        expr: |
+          time() - rules_cache_last_update_timestamp > 3600
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/stale-cache"
+        annotations:
+          summary: "Rules Engine cache has not been updated recently"
+          description: >
+            Rule condition cache for tenant {{ $labels.tenant_id }} has not been
+            updated for {{ $value | humanizeDuration }}, which may indicate
+            cache update failures or lack of activity.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Last Update: {{ $value | humanizeDuration }} ago
+          playbook: |
+            1. Check cache update mechanisms and scheduling
+            2. Verify cache storage backend connectivity
+            3. Review cache eviction policies and memory limits
+            4. Monitor for background task failures
+            5. Consider manual cache refresh if needed
+
+  - name: validahub.rules_engine.anomaly
+    interval: 120s
+    rules:
+      # Anomaly Detection Alerts
+      
+      - alert: RulesEngineAnomalousViolationPattern
+        expr: |
+          (
+            sum by (tenant_id, channel) (
+              rate(rules_violations_total{tenant_id!=""}[10m])
+            )
+            /
+            avg_over_time(
+              sum by (tenant_id, channel) (
+                rate(rules_violations_total{tenant_id!=""}[10m])
+              )[1h:10m]
+            )
+          ) > 3
+        for: 10m
+        labels:
+          severity: warning
+          team: data-science
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/anomaly-detection"
+        annotations:
+          summary: "Anomalous violation pattern detected"
+          description: >
+            Violation rate for {{ $labels.channel }} is {{ $value }}x higher
+            than the 1-hour average, indicating an anomalous pattern that may
+            suggest data quality issues or rule sensitivity problems.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Anomaly Factor: {{ $value }}x above normal
+          playbook: |
+            1. Investigate data source changes or quality regressions
+            2. Review marketplace catalog updates for unusual patterns
+            3. Check for seasonal or promotional activity impacts
+            4. Analyze violation types for concentration in specific categories
+            5. Coordinate with data science team for pattern analysis
+
+      - alert: RulesEnginePerformanceDegradation
+        expr: |
+          (
+            histogram_quantile(0.95,
+              rate(rules_execution_duration_ms_bucket{tenant_id!=""}[10m])
+            )
+            /
+            avg_over_time(
+              histogram_quantile(0.95,
+                rate(rules_execution_duration_ms_bucket{tenant_id!=""}[10m])
+              )[1h:10m]
+            )
+          ) > 2
+        for: 15m
+        labels:
+          severity: warning
+          team: platform
+          service: rules-engine
+          runbook_url: "https://wiki.validahub.com/runbooks/rules-engine/performance-degradation"
+        annotations:
+          summary: "Significant performance degradation detected"
+          description: >
+            P95 latency for {{ $labels.channel }} rules is {{ $value }}x slower
+            than the 1-hour average, indicating performance degradation that
+            requires investigation.
+            
+            Tenant: {{ $labels.tenant_id }}
+            Channel: {{ $labels.channel }}
+            Performance Degradation: {{ $value }}x slower
+          playbook: |
+            1. Check system resource utilization trends
+            2. Review database query performance and indexing
+            3. Analyze rule complexity changes or additions
+            4. Monitor for external dependency latency increases
+            5. Consider temporary load balancing adjustments
+
+# Recording Rules for SLO Calculation
+  - name: validahub.rules_engine.slo_recording
+    interval: 30s
+    rules:
+      # SLO Compliance Metrics (for SLA reporting)
+      
+      - record: rules_engine:slo_f1_score_compliance
+        expr: |
+          avg by (tenant_id, channel) (
+            rules_effectiveness_f1_score >= 0.5
+          )
+        labels:
+          slo: f1_score
+          threshold: "0.5"
+
+      - record: rules_engine:slo_latency_compliance
+        expr: |
+          (
+            histogram_quantile(0.95,
+              rate(rules_execution_duration_ms_bucket[5m])
+            ) <= 800
+          )
+        labels:
+          slo: latency_p95
+          threshold: "800ms"
+
+      - record: rules_engine:slo_cache_compliance
+        expr: |
+          avg by (tenant_id) (
+            rules_cache_hit_rate >= 90
+          )
+        labels:
+          slo: cache_hit_rate
+          threshold: "90%"
+
+      - record: rules_engine:slo_availability_compliance
+        expr: |
+          avg_over_time(up{job="rules-engine"}[5m]) >= 0.995
+        labels:
+          slo: availability
+          threshold: "99.5%"
