@@ -10,6 +10,7 @@ from typing import ClassVar, Optional, Dict, Any, List
 from uuid import UUID
 import re
 import json
+from urllib.parse import urlparse
 
 
 class RuleStatus(Enum):
@@ -344,5 +345,7 @@ class RuleMetadata:
             raise ValueError("Description too long")
         
         # Validate documentation URL
-        if self.documentation_url and not self.documentation_url.startswith(("http://", "https://")):
-            raise ValueError("Invalid documentation URL")
+        if self.documentation_url:
+            parsed = urlparse(self.documentation_url)
+            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+                raise ValueError("Invalid documentation URL")
