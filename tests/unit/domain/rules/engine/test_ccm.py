@@ -7,15 +7,9 @@ These tests ensure that:
 3. The domain remains pure and doesn't do parsing
 """
 
-import pytest
 from datetime import datetime
 
-from domain.rules.engine.ccm import (
-    CanonicalCSVModel, 
-    CCMField, 
-    CCMFieldType,
-    ValidationSeverity
-)
+from domain.rules.engine.ccm import CanonicalCSVModel, CCMField, CCMFieldType, ValidationSeverity
 
 
 class TestCCMDomainGuardrails:
@@ -195,6 +189,7 @@ class TestCCMDomainGuardrails:
         """Domain CCM should not import dateutil (parsing library)."""
         # This is a static check to ensure domain purity
         import inspect
+
         import domain.rules.engine.ccm as ccm_module
         
         # Get the source code

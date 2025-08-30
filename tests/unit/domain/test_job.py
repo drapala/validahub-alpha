@@ -66,7 +66,7 @@ class TestJobCreation:
         job = Job.create(TenantId("t_tenant123"))
 
         # Attempt to modify should raise error
-        with pytest.raises(Exception):  # dataclass frozen=True raises FrozenInstanceError
+        with pytest.raises((AttributeError, TypeError)):
             job.status = JobStatus.RUNNING
 
 
@@ -382,7 +382,7 @@ class TestJobImmutability:
 
         # Perform multiple transitions
         running = original.start()
-        completed = running.complete()
+        _ = running.complete()
 
         # Original should be completely unchanged
         assert original.status == original_status

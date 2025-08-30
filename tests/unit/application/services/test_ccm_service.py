@@ -7,9 +7,8 @@ These tests ensure that:
 3. The domain receives properly typed data
 """
 
-import pytest
 from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
 from application.services.ccm_service import CCMValidationService
 from domain.rules.engine.ccm import CCMValidationResult, ValidationSeverity

@@ -7,7 +7,6 @@ These tests ensure that:
 3. The factory returns proper domain objects
 """
 
-import pytest
 from datetime import datetime
 
 from application.factories.ccm_factory import CCMFactory
