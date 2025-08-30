@@ -4,8 +4,8 @@ This adapter bridges the gap between the application layer and Doppler client.
 """
 
 
-from src.application.ports import SecretsManager
-from src.infrastructure.secrets.doppler_client import get_secrets_manager as get_doppler_client
+from packages.application.ports import SecretsManager
+from packages.infra.secrets.doppler_client import get_secrets_manager as get_doppler_client
 
 
 class DopplerSecretsAdapter(SecretsManager):

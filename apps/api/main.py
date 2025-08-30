@@ -27,9 +27,9 @@ from packages.domain.errors import (
     DomainError, RateLimitExceededError, SecurityViolationError,
     TenantIsolationError, IdempotencyViolationError
 )
-from src.application.config import get_config
-from src.infrastructure.auth.jwt_service import JWTService
-from src.infrastructure.middleware.security_headers import SecurityHeadersMiddleware
+from packages.application.config import get_config
+from packages.infra.auth.jwt_service import JWTService
+from packages.infra.middleware.security_headers import SecurityHeadersMiddleware
 
 try:
     from packages.shared.logging import get_logger

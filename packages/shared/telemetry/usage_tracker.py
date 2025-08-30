@@ -107,7 +107,7 @@ class UserSession:
     idle_time_seconds: int = 0        # Time idle but session active
     bounce_rate: float = 0.0          # 1 page view = bounce
     
-    def update_activity(self):
+    def update_activity(self) -> None:
         """Update last activity timestamp."""
         now = datetime.now(UTC)
         
@@ -121,7 +121,7 @@ class UserSession:
         self.last_activity = now
         self.actions_performed += 1
     
-    def end_session(self):
+    def end_session(self) -> dict[str, Any]:
         """End the session and calculate final metrics."""
         self.end_time = datetime.now(UTC)
         
@@ -152,13 +152,13 @@ class UsageTracker:
     and product usage patterns for data-driven product development.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.emitter = get_emitter()
         self.active_sessions: dict[str, UserSession] = {}
         self.feature_registry: dict[str, FeatureCategory] = {}
         self._initialize_feature_registry()
     
-    def _initialize_feature_registry(self):
+    def _initialize_feature_registry(self) -> None:
         """Initialize the feature registry with categories."""
         core_features = [
             "job_submit", "job_view", "file_upload", "dashboard_view",
@@ -244,7 +244,7 @@ class UsageTracker:
         
         return session
     
-    def end_session(self, session_id: str) -> dict[str, Any] | None:
+    async def end_session(self, session_id: str) -> dict[str, Any] | None:
         """End a user session and emit session summary."""
         if session_id not in self.active_sessions:
             return None
@@ -270,14 +270,14 @@ class UsageTracker:
             actor_id=session.user_id
         )
         
-        self.emitter.emit_event(event, force_emit=True)
+        await self.emitter.emit_event(event, force_emit=True)
         
         # Clean up
         del self.active_sessions[session_id]
         
         return session_summary
     
-    def track_action(
+    async def track_action(
         self,
         action: UserAction,
         user_id: str,
@@ -285,7 +285,7 @@ class UsageTracker:
         session_id: str | None = None,
         context: dict[str, Any] | None = None,
         revenue_impact: float | None = None
-    ):
+    ) -> None:
         """Track a user action with comprehensive context."""
         # Update session if active
         if session_id and session_id in self.active_sessions:
@@ -328,11 +328,11 @@ class UsageTracker:
                 actor_id=user_id
             )
             
-            self.emitter.emit_event(event)
+            await self.emitter.emit_event(event)
         
         # Track feature usage separately
         if action == UserAction.FEATURE_USED and context and "feature_name" in context:
-            self.track_feature_usage(
+            await self.track_feature_usage(
                 feature_name=context["feature_name"],
                 user_id=user_id,
                 tenant_id=tenant_id,
@@ -340,14 +340,14 @@ class UsageTracker:
                 usage_context=context
             )
     
-    def track_feature_usage(
+    async def track_feature_usage(
         self,
         feature_name: str,
         user_id: str,
         tenant_id: str,
         session_id: str | None = None,
         usage_context: dict[str, Any] | None = None
-    ):
+    ) -> None:
         """Track feature usage with adoption metrics."""
         # Update session feature tracking
         if session_id and session_id in self.active_sessions:
@@ -375,7 +375,7 @@ class UsageTracker:
             actor_id=user_id
         )
         
-        self.emitter.emit_event(event)
+        await self.emitter.emit_event(event)
         
         # Track feature adoption metric
         self.emitter.emit_metric(
@@ -389,14 +389,14 @@ class UsageTracker:
             }
         )
     
-    def track_page_view(
+    async def track_page_view(
         self,
         page_name: str,
         user_id: str,
         tenant_id: str,
         session_id: str,
         page_metadata: dict[str, Any] | None = None
-    ):
+    ) -> None:
         """Track page views for navigation analysis."""
         if session_id in self.active_sessions:
             session = self.active_sessions[session_id]
@@ -413,7 +413,7 @@ class UsageTracker:
             "referrer": page_metadata.get("referrer") if page_metadata else None,
         }
         
-        self.track_action(
+        await self.track_action(
             UserAction.PAGE_VIEW,
             user_id=user_id,
             tenant_id=tenant_id,
@@ -421,14 +421,14 @@ class UsageTracker:
             context=event_data
         )
     
-    def track_conversion_funnel(
+    async def track_conversion_funnel(
         self,
         funnel_name: str,
         step_name: str,
         user_id: str,
         tenant_id: str,
         step_data: dict[str, Any] | None = None
-    ):
+    ) -> None:
         """Track user progress through conversion funnels."""
         event_data = {
             "funnel_name": funnel_name,
@@ -446,7 +446,7 @@ class UsageTracker:
             actor_id=user_id
         )
         
-        self.emitter.emit_event(event, force_emit=True)
+        await self.emitter.emit_event(event, force_emit=True)
         
         # Track funnel metrics
         self.emitter.emit_metric(
@@ -460,14 +460,14 @@ class UsageTracker:
             }
         )
     
-    def track_user_journey(
+    async def track_user_journey(
         self,
         journey_id: str,
         milestone: str,
         user_id: str,
         tenant_id: str,
         milestone_data: dict[str, Any] | None = None
-    ):
+    ) -> None:
         """Track user journey milestones for onboarding and engagement."""
         event_data = {
             "journey_id": journey_id,
@@ -485,7 +485,7 @@ class UsageTracker:
             actor_id=user_id
         )
         
-        self.emitter.emit_event(event, force_emit=True)
+        await self.emitter.emit_event(event, force_emit=True)
     
     def calculate_feature_adoption(
         self,
@@ -593,29 +593,29 @@ def get_usage_tracker() -> UsageTracker:
 
 
 # Convenience functions
-def track_user_action(
+async def track_user_action(
     action: UserAction,
     user_id: str,
     tenant_id: str,
     session_id: str | None = None,
     context: dict[str, Any] | None = None,
     revenue_impact: float | None = None
-):
+) -> None:
     """Track user action using global tracker."""
-    get_usage_tracker().track_action(
+    await get_usage_tracker().track_action(
         action, user_id, tenant_id, session_id, context, revenue_impact
     )
 
 
-def track_feature_usage(
+async def track_feature_usage(
     feature_name: str,
     user_id: str,
     tenant_id: str,
     session_id: str | None = None,
     usage_context: dict[str, Any] | None = None
-):
+) -> None:
     """Track feature usage using global tracker."""
-    get_usage_tracker().track_feature_usage(
+    await get_usage_tracker().track_feature_usage(
         feature_name, user_id, tenant_id, session_id, usage_context
     )
 

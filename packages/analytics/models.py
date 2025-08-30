@@ -46,7 +46,7 @@ class DimTenant:
     country_code: str = "BR"
     state_code: str | None = None
     city: str | None = None
-    onboarding_date: date = None
+    onboarding_date: date | None = None
     plan_upgrade_date: date | None = None
     
     # SCD Type 2 fields
@@ -66,7 +66,7 @@ class DimTenant:
     total_data_volume_gb: Decimal = Decimal('0.00')
     average_data_quality_score: float = 0.0
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.onboarding_date is None:
             self.onboarding_date = date.today()
 
@@ -216,8 +216,8 @@ class DimTime:
     is_weekend: bool = False
     is_holiday: bool = False
     is_business_day: bool = True
-    fiscal_year: int = None
-    fiscal_quarter: int = None
+    fiscal_year: int | None = None
+    fiscal_quarter: int | None = None
     
     # Marketplace seasonality
     is_black_friday_week: bool = False
@@ -225,7 +225,7 @@ class DimTime:
     is_back_to_school: bool = False    # Jan-Feb
     seasonality_factor: float = 1.0    # Demand multiplier
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.fiscal_year is None:
             # Fiscal year starts in April for Brazil
             if self.month >= 4:
@@ -254,19 +254,25 @@ class FactJob:
     # Dimension keys
     tenant_sk: int
     channel_sk: int
-    seller_sk: int | None = None
     date_sk: int                      # Processing date
     submission_date_sk: int           # Submission date
     
     # Job attributes
     job_type: str                     # validation, correction, enrichment
     job_status: str                   # succeeded, failed, cancelled, etc.
-    priority: str = "normal"          # low, normal, high, urgent
     
     # Processing metrics
     submission_timestamp: datetime
+    
+    # Optional dimension keys
+    seller_sk: int | None = None
+    
+    # Optional processing metrics
     start_timestamp: datetime | None = None
     completion_timestamp: datetime | None = None
+    
+    # Job attributes with defaults
+    priority: str = "normal"          # low, normal, high, urgent
     queue_duration_seconds: int = 0
     processing_duration_seconds: int = 0
     total_duration_seconds: int = 0
@@ -297,7 +303,7 @@ class FactJob:
     cost_per_record_brl: Decimal = Decimal('0.00')
     roi_ratio: float = 0.0             # revenue / cost
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Calculate derived metrics."""
         # Success indicator
         self.success_indicator = 1 if self.job_status == "succeeded" else 0
@@ -381,8 +387,8 @@ class FactUsage:
     
     # Dimension keys
     tenant_sk: int
-    channel_sk: int | None = None
     date_sk: int
+    channel_sk: int | None = None
     
     # Aggregated metrics
     total_jobs: int = 0
@@ -411,7 +417,7 @@ class FactUsage:
     error_rate: float = 0.0            # errors / total_records
     cost_efficiency: float = 0.0       # records_processed / cost
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Calculate derived KPIs."""
         if self.total_jobs > 0:
             self.success_rate = self.successful_jobs / self.total_jobs
@@ -435,8 +441,8 @@ class FactRevenue:
     
     # Dimension keys
     tenant_sk: int
-    channel_sk: int | None = None
     date_sk: int
+    channel_sk: int | None = None
     
     # Revenue components
     subscription_revenue_brl: Decimal = Decimal('0.00')
@@ -461,7 +467,7 @@ class FactRevenue:
     revenue_per_job_brl: Decimal = Decimal('0.00')
     cost_per_gb_brl: Decimal = Decimal('0.00')
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Calculate derived metrics."""
         self.gross_profit_brl = self.total_revenue_brl - self.total_cost_brl
         
@@ -628,7 +634,7 @@ def generate_business_insights(
             })
     
     # Channel performance insights
-    channel_performance = {}
+    channel_performance: dict[int, dict[str, Any]] = {}
     for job in fact_jobs:
         channel_sk = job.channel_sk
         if channel_sk not in channel_performance:
@@ -646,8 +652,8 @@ def generate_business_insights(
     }
     
     if channel_success_rates:
-        best_channel = max(channel_success_rates, key=channel_success_rates.get)
-        worst_channel = min(channel_success_rates, key=channel_success_rates.get)
+        best_channel = max(channel_success_rates, key=lambda x: channel_success_rates[x])
+        worst_channel = min(channel_success_rates, key=lambda x: channel_success_rates[x])
         
         insights.append({
             "type": "channel_analysis",

@@ -3,8 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.application.ports import EventBus, JobRepository, RateLimiter
-from src.domain.value_objects import IdempotencyKey, TenantId
+from packages.application.ports import EventBus, JobRepository, RateLimiter
+from packages.domain.value_objects import IdempotencyKey, TenantId
 
 
 @dataclass

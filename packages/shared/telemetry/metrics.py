@@ -12,22 +12,30 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 try:
     from opentelemetry import metrics as otel_metrics
-    from opentelemetry.metrics import Counter, Gauge, Histogram, UpDownCounter
+    from opentelemetry.metrics import Counter, Histogram, UpDownCounter
+    # Note: Gauge is created via meter.create_gauge(), not imported directly
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
     # Mock classes for when OpenTelemetry is not available
-    class Counter:
-        def add(self, value, attributes=None): pass
-    class Histogram:
-        def record(self, value, attributes=None): pass
-    class Gauge:
-        def set(self, value, attributes=None): pass
-    class UpDownCounter:
-        def add(self, value, attributes=None): pass
+    class MockCounter:
+        def add(self, value: float, attributes: dict[str, str] | None = None) -> None: pass
+    class MockHistogram:
+        def record(self, value: float, attributes: dict[str, str] | None = None) -> None: pass
+    class MockGauge:
+        def set(self, value: float, attributes: dict[str, str] | None = None) -> None: pass
+    class MockUpDownCounter:
+        def add(self, value: float, attributes: dict[str, str] | None = None) -> None: pass
+    
+    # Assign mock types to expected names
+    Counter = MockCounter  # type: ignore
+    Histogram = MockHistogram  # type: ignore
+    Gauge = MockGauge  # type: ignore
+    UpDownCounter = MockUpDownCounter  # type: ignore
 
 
 class MetricType(Enum):
@@ -65,11 +73,11 @@ class MetricRegistry:
     that flow through the system, ensuring consistency and preventing drift.
     """
     
-    def __init__(self):
+    def __init__(self) -> None:
         self._metrics: dict[str, MetricDefinition] = {}
         self._initialize_core_metrics()
     
-    def _initialize_core_metrics(self):
+    def _initialize_core_metrics(self) -> None:
         """Initialize all core ValidaHub metrics."""
         
         # Business Metrics - Revenue & Cost Attribution
@@ -264,7 +272,7 @@ class OpenTelemetryMetricsCollector(AbstractMetricsCollector):
         self.meter = otel_metrics.get_meter(meter_name)
         self._counters: dict[str, Counter] = {}
         self._histograms: dict[str, Histogram] = {}
-        self._gauges: dict[str, Gauge] = {}
+        self._gauges: dict[str, Any] = {}  # Gauge is created dynamically
     
     def _get_counter(self, name: str) -> Counter:
         if name not in self._counters:
@@ -276,7 +284,7 @@ class OpenTelemetryMetricsCollector(AbstractMetricsCollector):
             self._histograms[name] = self.meter.create_histogram(name)
         return self._histograms[name]
     
-    def _get_gauge(self, name: str) -> Gauge:
+    def _get_gauge(self, name: str) -> Any:
         if name not in self._gauges:
             self._gauges[name] = self.meter.create_gauge(name)
         return self._gauges[name]
@@ -297,7 +305,7 @@ class OpenTelemetryMetricsCollector(AbstractMetricsCollector):
 class InMemoryMetricsCollector(AbstractMetricsCollector):
     """In-memory metrics collector for testing and development."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.counters: dict[str, float] = defaultdict(float)
         self.histograms: dict[str, list[float]] = defaultdict(list)
         self.gauges: dict[str, float] = {}

@@ -3,8 +3,8 @@ Application bootstrap and dependency injection configuration.
 This is the composition root where all dependencies are wired together.
 """
 
-from src.application.config import Config, get_config
-from src.infrastructure.secrets.secrets_adapter import get_secrets_adapter
+from packages.application.config import Config, get_config
+from packages.infra.secrets.secrets_adapter import get_secrets_adapter
 
 
 def bootstrap_config() -> Config:

@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from src.domain.rules.value_objects import SemVer
+from packages.domain.rules.value_objects import SemVer
 
 
 class ConditionType(Enum):
