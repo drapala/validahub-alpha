@@ -70,7 +70,7 @@
 ### Positive Benefits
 - **Performance Excellence**: Achieved 50k lines < 3s through vectorized operations and caching
 - **Multi-tenant Isolation**: Complete tenant separation with RLS and encrypted rule storage
-- **Developer Experience**: Visual editor with Monaco, drag-and-drop builder, real-time validation
+- **Developer Experience**: Comprehensive rule authoring with syntax validation, visual composition support, and real-time feedback capabilities
 - **Operational Visibility**: Full OpenTelemetry integration with Grafana dashboards and alerting
 - **Business Intelligence**: Automated rule effectiveness analysis and suggestion mining
 - **System Reliability**: Comprehensive testing strategy including golden tests and chaos engineering
@@ -99,13 +99,13 @@
 - Redis caching with checksum-based invalidation
 - PostgreSQL schema with JSONB rule storage and basic partitioning
 - FastAPI endpoints for rule CRUD operations
-- Basic Monaco editor for YAML rule editing
+- Basic rule editor interface with YAML syntax validation
 
 ### REFACTOR: Production-Ready Enhancements
 - Vectorized operations using pandas/numpy for performance optimization
 - Comprehensive golden test suite across all supported marketplaces
 - Advanced observability with OpenTelemetry traces and business metrics
-- Visual rule builder with drag-and-drop interface
+- Visual rule composition interface for combining conditions and actions
 - Machine learning-based rule suggestion engine
 
 ## DDD Anchors
@@ -181,12 +181,66 @@
 - **Key Decisions**: Golden tests per marketplace, 50k line performance validation
 - **Files**: Unit/integration/contract tests, mutation testing, chaos engineering
 
-#### 7. Frontend Developer (Completed: commit a49de41)
-- **Deliverables**: Next.js editor, Monaco integration, visual analytics, SSE
-- **Key Decisions**: Real-time validation feedback, drag-and-drop rule builder
-- **Files**: React components, Playwright E2E tests, responsive dashboard
+#### 7. UI/UX Port Implementation (Completed: commit a49de41)
+- **Domain Deliverables**: 
+  - Rule editing capabilities via RuleEditorPort
+  - Rule composition logic via RuleBuilderPort  
+  - Metrics subscription via RuleMetricsPort
+  
+- **Application Integration**:
+  - Use cases consume ports without knowing implementation
+  - Port adapters handle UI-specific concerns
+  
+- **Infrastructure Choices** (implementation details):
+  - Web framework and component library selection
+  - Editor component implementation
+  - Real-time communication transport mechanism
 
-### Core Technical Decisions
+### Port and Adapter Architecture
+
+### Domain Core (No External Dependencies)
+```python
+# Pure business logic - knows nothing about UI or infrastructure
+class RuleSet:
+    def validate_syntax(self) -> ValidationResult
+    def compile_to_ir(self) -> IntermediateRepresentation
+    def check_compatibility(self, version: RuleVersion) -> bool
+```
+
+### Application Ports (Abstract Interfaces)
+```python
+# Abstractions that domain operations need
+class RuleEditorPort(ABC):
+    @abstractmethod
+    async def get_rule_content(self, rule_id: RuleId) -> str
+    
+    @abstractmethod
+    async def validate_syntax(self, content: str) -> ValidationResult
+
+class RuleMetricsPort(ABC):
+    @abstractmethod
+    async def stream_metrics(self, rule_id: RuleId) -> AsyncIterator[Metric]
+```
+
+### Infrastructure Adapters (Concrete Implementations)
+```python
+# Specific technology choices - can be swapped
+class MonacoEditorAdapter(RuleEditorPort):
+    """Monaco-specific implementation - see infrastructure docs"""
+    
+class SSEMetricsAdapter(RuleMetricsPort):
+    """Server-Sent Events implementation - see infrastructure docs"""
+    
+class WebSocketMetricsAdapter(RuleMetricsPort):
+    """WebSocket alternative implementation"""
+```
+
+This architecture ensures:
+1. Domain logic is pure and testable
+2. Infrastructure can be changed without affecting business logic
+3. Clear separation of concerns across layers
+
+## Core Technical Decisions
 
 #### YAML→IR→Runtime Pipeline
 ```yaml
@@ -275,6 +329,32 @@ class CompiledRule:
 - **Performance Consistency**: 95th percentile execution time stable within 10%
 - **Business Value**: Measurable reduction in manual correction effort
 - **System Stability**: Zero production incidents related to rule engine
+
+## Architecture Compliance Checklist
+
+### Domain Layer ✓
+- [ ] No imports from application or infrastructure layers
+- [ ] No framework-specific code (FastAPI, SQLAlchemy, React)
+- [ ] Only standard library imports and domain imports
+- [ ] Pure business logic and rules
+
+### Application Layer ✓
+- [ ] No imports from infrastructure layer
+- [ ] Defines abstract ports (interfaces)
+- [ ] Use cases orchestrate domain and ports
+- [ ] No concrete implementations
+
+### Infrastructure Layer ✓
+- [ ] Implements application ports
+- [ ] Contains all framework-specific code
+- [ ] Handles external integrations
+- [ ] Can import from domain and application
+
+### Testing ✓
+- [ ] Domain tests use no mocks (pure logic)
+- [ ] Application tests mock only ports
+- [ ] Infrastructure tests may use real implementations
+- [ ] Architecture tests validate layer dependencies
 
 ## Links
 
