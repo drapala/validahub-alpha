@@ -9,4 +9,5 @@ This directory contains immutable Architecture Decision Records. Each ADR captur
 - ADR-003: Idempotency key resolution design (Status: Accepted)
 - ADR-004: Audit logging in domain job lifecycle (Status: Accepted)
 - ADR-005: FileReference validation and security policy (Status: Accepted)
+- ADR-006: Pragmatic approach to domain layer dependencies (Status: Accepted)
 
