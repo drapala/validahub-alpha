@@ -39,10 +39,8 @@ try:
     # # NotificationPort,  # TODO: Implement when needed
     # )
     from domain.compliance import (
-        AuditEventType,
         AuditLogEntry,
         ComplianceReportRequest,
-        DataProcessingActivity,
         ImmutableLogRecord,
     )
 except ImportError:

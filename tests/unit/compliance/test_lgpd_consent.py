@@ -26,14 +26,14 @@ try:
         UpdateConsentUseCase,
         WithdrawConsentUseCase,
     )
-    from application.ports import (
-        # AuditLogPort,  # TODO: Implement when needed
-        ConsentRepository,
-        # NotificationPort,  # TODO: Implement when needed
-        ProcessingControlPort,
-    )
+
+    # from application.ports import (
+    #     AuditLogPort,  # TODO: Implement when needed
+    #     ConsentRepository,
+    #     NotificationPort,  # TODO: Implement when needed
+    #     ProcessingControlPort,
+    # )
     from domain.compliance import (
-        ConsentPurpose,
         ConsentRecord,
         ConsentStatus,
         ConsentWithdrawal,
