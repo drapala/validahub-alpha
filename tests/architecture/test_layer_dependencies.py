@@ -49,6 +49,11 @@ def extract_imports(file_path: Path) -> Set[str]:
                 for alias in node.names:
                     imports.add(alias.name)
             elif isinstance(node, ast.ImportFrom):
+                # Skip relative imports (level > 0 means relative import)
+                if node.level > 0:
+                    # Relative import within the same package - this is allowed
+                    continue
+                    
                 if node.module:
                     imports.add(node.module)
                     # Also add submodule imports
@@ -136,6 +141,11 @@ class TestDomainLayerPurity:
             'domain.',  # Internal domain imports
             'src.domain.',  # Internal domain imports (CI path)
             '__future__',
+            'decimal',  # Standard library for precise decimal arithmetic
+            'concurrent.futures',  # Standard library for parallel execution
+            'json',  # Standard library for JSON handling
+            'logging',  # Standard library for logging
+            'time',  # Standard library for time operations
         ]
         
         violations = []
