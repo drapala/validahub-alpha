@@ -189,6 +189,11 @@ tmp/
 temp/
 .tmp/
 
+# Next.js
+.next/
+next-env.d.ts
+package-lock.json
+
 # ValidaHub specific
 data/
 uploads/
