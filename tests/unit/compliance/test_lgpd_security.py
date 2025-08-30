@@ -31,22 +31,23 @@ try:
         EncryptDataInTransitUseCase,
         EnforceRateLimitingUseCase,
         PreventPersonalDataLeakageUseCase,
-        ValidateSecurityMeasuresUseCase,
+        # ValidateSecurityMeasuresUseCase,  # TODO: Implement when needed
     )
-    from application.ports import (
-        AuditLogPort,
-        DataLeakPreventionPort,
-        EncryptionPort,
-        IncidentResponsePort,
-        RateLimitingPort,
-        SecurityMonitoringPort,
-    )
+
+    # from application.ports import (
+    #     # AuditLogPort,  # TODO: Implement when needed  # TODO: Implement when needed
+    #     DataLeakPreventionPort,  # TODO: Implement when needed
+    #     # EncryptionPort,  # TODO: Implement when needed  # TODO: Implement when needed
+    #     IncidentResponsePort,  # TODO: Implement when needed
+    #     RateLimitingPort,  # TODO: Implement when needed
+    #     SecurityMonitoringPort,  # TODO: Implement when needed
+    # )
     from domain.compliance import (
         DataBreachAssessment,
-        EncryptionStandard,
-        SecurityAuditResult,
-        SecurityIncident,
-        SecurityMeasure,
+        # EncryptionStandard,  # TODO: Implement when needed
+        # SecurityAuditResult,  # TODO: Implement when needed
+        # SecurityIncident,  # TODO: Implement when needed
+        # SecurityMeasure,  # TODO: Implement when needed
     )
 except ImportError:
     # Expected during RED phase
@@ -470,7 +471,7 @@ class TestNoPersonalDataInUrls:
         # Act & Assert
         for url in unsafe_urls:
             with pytest.raises(ValueError, match="Personal data detected in URL"):
-                result = use_case.validate_url_safety(tenant_id=tenant_id, url=url)
+                _ = use_case.validate_url_safety(tenant_id=tenant_id, url=url)
 
         # Verify all unsafe URLs were blocked
         assert mock_data_leak_prevention_port.scan_url_for_personal_data.call_count == 4

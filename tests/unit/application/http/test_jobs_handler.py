@@ -162,7 +162,7 @@ class TestJobsHttpHandler:
         mock_store.get.return_value = None  # No existing record
         mock_store.put.side_effect = IdempotencyConflictError("t_test123", "key123")
 
-        handler = JobsHttpHandler(self.mock_use_case, mock_store)
+        JobsHttpHandler(self.mock_use_case, mock_store)
         self.mock_use_case.execute.return_value = self.mock_response
 
         # Should complete successfully despite race condition
@@ -243,7 +243,7 @@ class TestJobsHttpHandler:
             ("key\\with\\backslashes", "backslashes"),
         ]
 
-        for invalid_key, description in test_cases:
+        for invalid_key, _description in test_cases:
             # Test each invalid key case
             self.request.idempotency_key_raw = invalid_key
 

@@ -183,7 +183,7 @@ class TestInMemoryIdempotencyStore:
     def test_expired_record_cleanup(self):
         """Test that expired records are cleaned up on access."""
         # Store a record with very short TTL
-        record = self.store.put(self.tenant_id, self.key, self.response_data, ttl_seconds=0)
+        self.store.put(self.tenant_id, self.key, self.response_data, ttl_seconds=0)
 
         # Manually expire the record
         import time

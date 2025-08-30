@@ -309,7 +309,7 @@ class TestJobsHttpHandlerIntegration:
                     assert sensitive_key not in error_message
 
                     # Security: Error type should be preserved
-                    assert type(caught_error) == type(error)
+                    assert type(caught_error) is type(error)
 
     def test_rate_limiting_per_tenant_isolation(self):
         """Test rate limiting properly isolates tenants."""

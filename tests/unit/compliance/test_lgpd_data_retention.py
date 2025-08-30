@@ -27,17 +27,18 @@ try:
         ExecuteDataDeletionUseCase,
         ScheduleAutomaticDeletionUseCase,
     )
-    from application.ports import (
-        AuditLogPort,
-        BackupManagementPort,
-        CacheManagementPort,
-        DataRetentionRepository,
-        LogManagementPort,
-        NotificationPort,
-    )
+
+    # from application.ports import (
+    # # AuditLogPort,  # TODO: Implement when needed
+    # # BackupManagementPort,  # TODO: Implement when needed
+    # # CacheManagementPort,  # TODO: Implement when needed
+    # # DataRetentionRepository,  # TODO: Implement when needed
+    # # LogManagementPort,  # TODO: Implement when needed
+    # # NotificationPort,  # TODO: Implement when needed
+    # )
     from domain.compliance import (
-        DataCategory,
-        DataLifecycleStatus,
+        # DataCategory,  # TODO: Implement when needed
+        # DataLifecycleStatus,  # TODO: Implement when needed
         DeletionResult,
         RetentionPeriod,
         RetentionPolicy,
@@ -252,7 +253,7 @@ class TestAutomaticDeletionAfterRetentionPeriod:
         mock_cache_port.clear_cache_entries.return_value = {"cleared": True, "cache_entries": 5}
         mock_log_port.anonymize_log_entries.return_value = {"anonymized": True, "log_entries": 12}
 
-        deletion_result = DeletionResult(
+        DeletionResult(
             deletion_id=str(uuid4()),
             data_items_deleted=1,
             locations_cleared=["primary_db", "backup_db", "cache", "audit_logs"],

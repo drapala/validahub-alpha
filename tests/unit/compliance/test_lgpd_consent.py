@@ -27,9 +27,9 @@ try:
         WithdrawConsentUseCase,
     )
     from application.ports import (
-        AuditLogPort,
+        # AuditLogPort,  # TODO: Implement when needed
         ConsentRepository,
-        NotificationPort,
+        # NotificationPort,  # TODO: Implement when needed
         ProcessingControlPort,
     )
     from domain.compliance import (

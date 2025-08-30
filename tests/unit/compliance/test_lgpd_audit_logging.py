@@ -31,12 +31,13 @@ try:
         QueryAuditTrailUseCase,
         ValidateLogIntegrityUseCase,
     )
-    from application.ports import (
-        AuditLogRepository,
-        EncryptionPort,
-        ImmutableStoragePort,
-        NotificationPort,
-    )
+
+    # from application.ports import (
+    # # AuditLogRepository,  # TODO: Implement when needed
+    # # EncryptionPort,  # TODO: Implement when needed
+    # # ImmutableStoragePort,  # TODO: Implement when needed
+    # # NotificationPort,  # TODO: Implement when needed
+    # )
     from domain.compliance import (
         AuditEventType,
         AuditLogEntry,

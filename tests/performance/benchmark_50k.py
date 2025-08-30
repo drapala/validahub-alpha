@@ -9,7 +9,9 @@ import json
 import logging
 import os
 import statistics
+import sys
 import time
+import traceback
 import tracemalloc
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
@@ -376,7 +378,7 @@ class PerformanceBenchmark:
         """Executa aquecimento do sistema."""
         logger.info("Executando aquecimento...")
 
-        for i in range(self.config.warmup_iterations):
+        for _i in range(self.config.warmup_iterations):
             self.engine.execute_rules(rules, sample_data)
 
         logger.info("Aquecimento concluído")
@@ -661,7 +663,7 @@ def main():
 
     # Exit code baseado no SLO
     exit_code = 0 if report.passes_slo else 1
-    exit(exit_code)
+    sys.exit(exit_code)
 
 
 if __name__ == "__main__":

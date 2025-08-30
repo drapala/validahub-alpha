@@ -29,14 +29,14 @@ try:
         SuppressUniqueAttributesUseCase,
         ValidateKAnonymityUseCase,
     )
-    from application.ports import AnonymizationPort, AuditLogPort, DataAnalysisPort
-    from domain.compliance import (
-        AnonymizationResult,
-        AnonymizationTechnique,
-        AnonymizedDataset,
-        KAnonymityLevel,
-        PersonalDataField,
-    )
+    # from application.ports import # AnonymizationPort,  # TODO: Implement when needed # AuditLogPort,  # TODO: Implement when needed DataAnalysisPort
+    # from domain.compliance import (
+    # # AnonymizationResult,  # TODO: Implement when needed
+    # # AnonymizationTechnique,  # TODO: Implement when needed
+    # # AnonymizedDataset,  # TODO: Implement when needed
+    # # KAnonymityLevel,  # TODO: Implement when needed
+    # # PersonalDataField,  # TODO: Implement when needed
+    # )
 except ImportError:
     # Expected during RED phase
     pass
