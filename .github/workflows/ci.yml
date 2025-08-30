@@ -30,13 +30,28 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
       - name: Run ruff linting
-        run: ruff check packages tests || ruff check src tests || true
+        run: |
+          if [ -d "packages" ]; then
+            ruff check packages tests
+          else
+            ruff check src tests
+          fi
 
       - name: Run mypy type checking
-        run: mypy packages --strict || mypy src --strict || true
+        run: |
+          if [ -d "packages" ]; then
+            mypy packages --strict
+          else
+            mypy src --strict || true  # TODO: Fix mypy errors and make strict
+          fi
 
       - name: Check black formatting
-        run: black --check packages tests || black --check src tests || true
+        run: |
+          if [ -d "packages" ]; then
+            black --check packages tests
+          else
+            black --check src tests
+          fi
 
   tests:
     runs-on: ubuntu-latest
@@ -58,7 +73,11 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          pytest tests/unit tests/integration -v --tb=short --cov=packages --cov-report=term-missing --cov-fail-under=80 || pytest tests/unit tests/integration -v --tb=short --cov=src --cov-report=term-missing --cov-fail-under=80 || true
+          if [ -d "packages" ]; then
+            pytest tests/unit tests/integration -v --tb=short --cov=packages --cov-report=term-missing --cov-fail-under=80
+          else
+            pytest tests/unit tests/integration -v --tb=short --cov=src --cov-report=term-missing --cov-fail-under=80
+          fi
 
   architecture:
     runs-on: ubuntu-latest

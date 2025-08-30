@@ -14,27 +14,33 @@ except ImportError:
     OTEL_AVAILABLE = False
     
     # Mock classes when OpenTelemetry is not available
-    class Span:
-        def set_attributes(self, attributes): pass
-        def set_attribute(self, key, value): pass
-        def record_exception(self, exception): pass
-        def set_status(self, status): pass
-        def __enter__(self): return self
-        def __exit__(self, *args): pass
+    class MockSpanType:
+        def set_attributes(self, attributes: dict[str, Any]) -> None: pass
+        def set_attribute(self, key: str, value: Any) -> None: pass
+        def record_exception(self, exception: Exception) -> None: pass
+        def set_status(self, status: Any) -> None: pass
+        def __enter__(self) -> "MockSpanType": return self
+        def __exit__(self, *args: Any) -> None: pass
     
-    class Tracer:
-        def start_span(self, name): return MockSpan(name)
+    class MockTracerType:
+        def start_span(self, name: str) -> "MockSpan": return MockSpan(name)
     
-    class Status:
+    class MockStatus:
         ERROR = "ERROR"
         OK = "OK"
     
-    class StatusCode:
+    class MockStatusCode:
         ERROR = "ERROR" 
         OK = "OK"
+    
+    # Assign mock types to the expected names
+    Span = MockSpanType  # type: ignore
+    Status = MockStatus  # type: ignore  
+    StatusCode = MockStatusCode  # type: ignore
+    Tracer = MockTracerType  # type: ignore
 
 
-class MockSpan(Span):
+class MockSpan(MockSpanType):
     """Mock span for when OpenTelemetry is not available."""
     def __init__(self, name: str):
         self.name = name
@@ -43,7 +49,7 @@ class MockSpan(Span):
 class TracingSpan:
     """Wrapper for OpenTelemetry spans with ValidaHub-specific features."""
     
-    def __init__(self, span: Span, operation_name: str):
+    def __init__(self, span: Any, operation_name: str) -> None:
         self.span = span
         self.operation_name = operation_name
         self.start_time = time.time()
@@ -80,12 +86,12 @@ class TracingSpan:
         return (time.time() - self.start_time) * 1000
 
 
-def get_tracer(name: str = "validahub") -> Tracer:
+def get_tracer(name: str = "validahub") -> Tracer | MockTracerType:
     """Get OpenTelemetry tracer."""
     if OTEL_AVAILABLE:
         return trace.get_tracer(name)
     else:
-        return Tracer()
+        return MockTracerType()
 
 
 @contextmanager
@@ -93,7 +99,7 @@ def trace_operation(
     operation_name: str,
     attributes: dict[str, Any] | None = None,
     tracer_name: str = "validahub"
-):
+) -> Any:
     """
     Context manager for tracing operations.
     

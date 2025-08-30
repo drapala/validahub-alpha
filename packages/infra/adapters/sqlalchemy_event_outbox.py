@@ -14,12 +14,13 @@ Features:
 
 from datetime import UTC, datetime
 
-from packages.application.ports import EventOutbox
-from packages.domain.events import DomainEvent
-from packages.infra.models.job_model import EventOutboxModel
 from sqlalchemy import and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+
+from packages.application.ports import EventOutbox
+from packages.domain.events import DomainEvent
+from packages.infra.models.job_model import EventOutboxModel
 
 try:
     from packages.shared.logging import get_logger

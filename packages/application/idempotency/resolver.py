@@ -5,8 +5,8 @@ import hashlib
 import re
 import secrets
 
-from src.application.config import Config, IdempotencyCompatMode
-from src.domain.value_objects import TenantId
+from packages.application.config import Config, IdempotencyCompatMode
+from packages.domain.value_objects import TenantId
 
 # Graceful handling of logging dependencies
 try:

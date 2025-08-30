@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Verify that critical security fixes are implemented."""
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def check_jwt_implementation():
@@ -31,7 +32,7 @@ def check_jwt_implementation():
         return False
     
     # Check main.py uses real JWT
-    with open("apps/api/main.py", "r") as f:
+    with open("apps/api/main.py") as f:
         content = f.read()
         
         # Check JWT service is imported
@@ -83,7 +84,7 @@ def check_doppler_integration():
     
     # Check config uses Doppler
     try:
-        with open("src/application/config.py", "r") as f:
+        with open("src/application/config.py") as f:
             content = f.read()
             
             # Check Doppler is imported
@@ -118,7 +119,7 @@ def check_cors_configuration():
     """Check CORS and trusted hosts configuration."""
     print("\n✓ Checking CORS Configuration...")
     
-    with open("apps/api/main.py", "r") as f:
+    with open("apps/api/main.py") as f:
         content = f.read()
         
         # Check CORS uses config
@@ -158,7 +159,7 @@ def check_cors_configuration():
             print("  ✓ SecurityHeadersMiddleware added")
     
     # Check config has validation
-    with open("src/application/config.py", "r") as f:
+    with open("src/application/config.py") as f:
         content = f.read()
         
         if "if self.ENVIRONMENT == Environment.PRODUCTION:" not in content:
@@ -197,7 +198,7 @@ def check_security_headers():
         return False
     
     # Check headers are configured
-    with open("src/infrastructure/middleware/security_headers.py", "r") as f:
+    with open("src/infrastructure/middleware/security_headers.py") as f:
         content = f.read()
         
         required_headers = [

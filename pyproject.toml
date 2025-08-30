@@ -37,6 +37,10 @@ dev = [
     "black>=24.0",
     "mypy>=1.0",
     "types-python-dateutil",
+    "types-redis",
+    "types-boto3",
+    "types-jsonschema",
+    "types-sqlalchemy",
 ]
 
 [project.urls]
@@ -46,14 +50,14 @@ Repository = "https://github.com/validahub/validahub"
 Issues = "https://github.com/validahub/validahub/issues"
 
 [tool.setuptools]
-package-dir = {"" = "src"}
-packages = ["domain", "application", "shared", "shared.logging"]
+package-dir = {"" = "packages"}
+packages = ["domain", "application", "shared", "shared.logging", "infra", "analytics", "contracts", "rules"]
 
 [tool.setuptools.package-data]
 "*" = ["py.typed"]
 
 [tool.coverage.run]
-source = ["src"]
+source = ["packages"]
 branch = true
 omit = [
     "*/tests/*",
@@ -75,7 +79,7 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["packages"]
 testpaths = ["tests"]
 addopts = "-q --strict-markers --tb=short"
 markers = [
@@ -87,7 +91,7 @@ markers = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-src = ["src", "tests"]
+src = ["packages", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -108,13 +112,15 @@ ignore = [
     "C901",  # too complex
     "B904",  # raise without from
     "PLR0912",  # too many branches
+    "PLR0911",  # too many return statements
+    "PLR0915",  # too many statements
 ]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
 [tool.ruff.lint.isort]
-known-first-party = ["domain", "application", "shared"]
+known-first-party = ["packages"]
 
 [tool.black]
 line-length = 100
@@ -130,4 +136,4 @@ warn_unused_configs = true
 no_implicit_reexport = true
 namespace_packages = true
 explicit_package_bases = true
-mypy_path = "src"
+mypy_path = "packages"

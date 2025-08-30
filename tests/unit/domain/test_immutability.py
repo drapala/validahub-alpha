@@ -21,24 +21,18 @@ these tests focus on verifying immutability without calling domain methods that 
 until a suitable workaround or fix is available.
 """
 
-import pytest
-from datetime import datetime, timezone
-from uuid import uuid4
-from typing import Tuple, List
 
-from src.domain.value_objects import TenantId, Channel
+import pytest
 from src.domain.rules.aggregates import RuleSet
 from src.domain.rules.entities import RuleVersion
 from src.domain.rules.value_objects import (
-    RuleSetId,
-    RuleVersionId,
-    RuleId,
     RuleDefinition,
-    RuleType,
+    RuleId,
     RuleStatus,
+    RuleType,
     SemVer,
-    RuleMetadata,
 )
+from src.domain.value_objects import Channel, TenantId
 
 
 class TestRuleSetImmutability:
@@ -132,7 +126,7 @@ class TestRuleSetImmutability:
         
         # The compatibility_policy is just a regular dict in construction,
         # but the frozen dataclass prevents field assignment ✅ WORKING CORRECTLY
-        with pytest.raises(Exception):  # Could be AttributeError or TypeError
+        with pytest.raises((AttributeError, TypeError)):
             rule_set.compatibility_policy = {"new_policy": True}  # type: ignore
     
     def test_tuple_assignment_fails(self):
@@ -192,16 +186,16 @@ class TestRuleSetImmutability:
         )
         
         # All field assignments should fail on frozen dataclass ✅ WORKING CORRECTLY
-        with pytest.raises(Exception):  # FrozenInstanceError or similar
+        with pytest.raises((AttributeError, TypeError)):
             rule_set.versions = ()  # type: ignore
         
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError)):
             rule_set.published_versions = ()  # type: ignore
         
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError)):
             rule_set.deprecated_versions = ()  # type: ignore
         
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError)):
             rule_set.name = "Different Name"  # type: ignore
 
 
@@ -292,13 +286,13 @@ class TestRuleVersionImmutabilityIssues:
         )
         
         # Field assignments should fail on frozen dataclass ✅ WORKING CORRECTLY
-        with pytest.raises(Exception):  # FrozenInstanceError or similar
+        with pytest.raises((AttributeError, TypeError)):
             rule_version.rules = ()  # type: ignore
         
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError)):
             rule_version.status = RuleStatus.VALIDATED  # type: ignore
         
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError)):
             rule_version.checksum = "abc123"  # type: ignore
     
     def test_empty_rules_collection_fails_validation(self):
@@ -578,8 +572,8 @@ class TestImmutabilityRealWorldScenarios:
     
     def test_concurrent_access_safety_ruleset(self):
         """Immutable RuleSet collections should be thread-safe for concurrent reads."""
-        from threading import Thread
         import time
+        from threading import Thread
         
         # Create rule set ✅ WORKING CORRECTLY
         tenant_id = TenantId("t_test123")
@@ -712,13 +706,13 @@ class TestImmutabilityRealWorldScenarios:
         )
         
         # Type annotations SHOULD be preserved
-        rules: Tuple[RuleDefinition, ...] = rule_version.rules
+        rules: tuple[RuleDefinition, ...] = rule_version.rules
         assert isinstance(rules, tuple)
         assert len(rules) == 2
         assert all(isinstance(rule, RuleDefinition) for rule in rules)
         
         # Query methods also maintain type safety ✅ WORKING CORRECTLY
-        title_rules: Tuple[RuleDefinition, ...] = rule_version.get_rules_by_field("title")
+        title_rules: tuple[RuleDefinition, ...] = rule_version.get_rules_by_field("title")
         assert isinstance(title_rules, tuple)
         assert len(title_rules) == 2
         assert all(isinstance(rule, RuleDefinition) for rule in title_rules)

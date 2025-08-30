@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from src.domain.value_objects import TenantId
+from packages.domain.value_objects import TenantId
 
 
 @dataclass(frozen=True)

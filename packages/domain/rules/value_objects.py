@@ -1,0 +1,370 @@
+"""Value objects for Rules bounded context.
+
+This module contains immutable value objects with validation and invariants.
+"""
+
+import re
+from dataclasses import dataclass
+from datetime import datetime
+from enum import Enum
+from typing import Any, ClassVar
+from uuid import UUID
+
+
+class RuleStatus(Enum):
+    """Rule lifecycle status."""
+    
+    DRAFT = "draft"
+    VALIDATED = "validated"
+    PUBLISHED = "published"
+    DEPRECATED = "deprecated"
+
+
+class RuleType(Enum):
+    """Types of validation rules."""
+    
+    REQUIRED = "required"
+    FORMAT = "format"
+    LENGTH = "length"
+    RANGE = "range"
+    ENUM = "enum"
+    PATTERN = "pattern"
+    DEPENDENCY = "dependency"
+    BUSINESS = "business"
+    COMPOSITE = "composite"
+
+
+class Compatibility(Enum):
+    """Compatibility level for rule versions."""
+    
+    MAJOR = "major"  # Breaking changes
+    MINOR = "minor"  # New features, backward compatible
+    PATCH = "patch"  # Bug fixes, fully compatible
+
+
+@dataclass(frozen=True)
+class RuleSetId:
+    """Rule set identifier."""
+    
+    value: UUID
+    
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, UUID):
+            raise ValueError("Invalid rule set id format")
+    
+    def __str__(self) -> str:
+        return str(self.value)
+    
+    def __repr__(self) -> str:
+        return f"RuleSetId('{self.value}')"
+
+
+@dataclass(frozen=True)
+class RuleId:
+    """Individual rule identifier.
+    
+    Note: Rule IDs are automatically normalized to lowercase for consistency.
+    This ensures that 'Price_Validation', 'price_validation', and 'PRICE_VALIDATION'
+    all map to the same rule ('price_validation').
+    
+    Valid format: must start with lowercase letter, followed by lowercase letters,
+    numbers, or underscores (e.g., 'price_validation', 'sku_format_01')
+    """
+    
+    value: str
+    _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
+    
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, str):
+            raise ValueError("Invalid rule id format")
+        
+        # Normalize to lowercase
+        normalized = self.value.strip().lower()
+        
+        # Validate pattern
+        if not self._pattern.match(normalized):
+            raise ValueError("Invalid rule id format")
+        
+        # Set normalized value
+        object.__setattr__(self, 'value', normalized)
+    
+    def __str__(self) -> str:
+        return self.value
+    
+    def __repr__(self) -> str:
+        return f"RuleId('{self.value}')"
+
+
+@dataclass(frozen=True)
+class RuleVersionId:
+    """Rule version identifier."""
+    
+    value: UUID
+    
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, UUID):
+            raise ValueError("Invalid rule version id format")
+    
+    def __str__(self) -> str:
+        return str(self.value)
+    
+    def __repr__(self) -> str:
+        return f"RuleVersionId('{self.value}')"
+
+
+@dataclass(frozen=True)
+class SemVer:
+    """Semantic version with validation.
+    
+    Pre-release version limits can be configured via class attributes.
+    """
+    
+    major: int
+    minor: int
+    patch: int
+    
+    # Configurable limits for pre-release versions (major version 0)
+    # These limits prevent pre-release version explosion during development.
+    # 99 minor versions allow ~2 years of bi-weekly releases
+    # 999 patches allow extensive bug fixing without version exhaustion
+    MAX_PRERELEASE_MINOR: ClassVar[int] = 99
+    MAX_PRERELEASE_PATCH: ClassVar[int] = 999
+    
+    def __post_init__(self) -> None:
+        if self.major < 0 or self.minor < 0 or self.patch < 0:
+            raise ValueError("Version components must be non-negative")
+        
+        # Major version 0 is allowed only for initial development
+        if self.major == 0 and (self.minor > self.MAX_PRERELEASE_MINOR or 
+                                self.patch > self.MAX_PRERELEASE_PATCH):
+            raise ValueError(
+                f"Pre-release versions limited to 0.{self.MAX_PRERELEASE_MINOR}."
+                f"{self.MAX_PRERELEASE_PATCH}"
+            )
+    
+    @classmethod
+    def from_string(cls, version_str: str) -> "SemVer":
+        """Parse from 'major.minor.patch' format."""
+        if not version_str:
+            raise ValueError("Invalid version format")
+        
+        try:
+            parts = version_str.strip().split('.')
+            if len(parts) != 3:
+                raise ValueError("Invalid version format")
+            
+            major = int(parts[0])
+            minor = int(parts[1])
+            patch = int(parts[2])
+            
+            return cls(major, minor, patch)
+        except (ValueError, IndexError):
+            raise ValueError("Invalid version format")
+    
+    def increment_major(self) -> "SemVer":
+        """Create new version with incremented major."""
+        return SemVer(self.major + 1, 0, 0)
+    
+    def increment_minor(self) -> "SemVer":
+        """Create new version with incremented minor."""
+        return SemVer(self.major, self.minor + 1, 0)
+    
+    def increment_patch(self) -> "SemVer":
+        """Create new version with incremented patch."""
+        return SemVer(self.major, self.minor, self.patch + 1)
+    
+    def is_compatible_with(self, other: "SemVer") -> Compatibility:
+        """Determine compatibility level with another version."""
+        if self.major != other.major:
+            return Compatibility.MAJOR
+        elif self.minor != other.minor:
+            return Compatibility.MINOR
+        else:
+            return Compatibility.PATCH
+    
+    def is_newer_than(self, other: "SemVer") -> bool:
+        """Check if this version is newer than another."""
+        if self.major != other.major:
+            return self.major > other.major
+        if self.minor != other.minor:
+            return self.minor > other.minor
+        return self.patch > other.patch
+    
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}"
+    
+    def __repr__(self) -> str:
+        return f"SemVer({self.major}, {self.minor}, {self.patch})"
+    
+    def __lt__(self, other: "SemVer") -> bool:
+        """Less than comparison for sorting."""
+        return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
+    
+    def __le__(self, other: "SemVer") -> bool:
+        """Less than or equal comparison."""
+        return (self.major, self.minor, self.patch) <= (other.major, other.minor, other.patch)
+    
+    def __gt__(self, other: "SemVer") -> bool:
+        """Greater than comparison."""
+        return (self.major, self.minor, self.patch) > (other.major, other.minor, other.patch)
+    
+    def __ge__(self, other: "SemVer") -> bool:
+        """Greater than or equal comparison."""
+        return (self.major, self.minor, self.patch) >= (other.major, other.minor, other.patch)
+    
+    def as_tuple(self) -> tuple[int, int, int]:
+        """Return version as tuple for comparison."""
+        return (self.major, self.minor, self.patch)
+
+
+@dataclass(frozen=True)
+class RuleDefinition:
+    """Rule definition with validation logic."""
+    
+    id: RuleId
+    type: RuleType
+    field: str
+    condition: dict[str, Any]
+    message: str
+    severity: str  # "error", "warning", "info"
+    metadata: dict[str, Any] | None = None
+    
+    def __post_init__(self) -> None:
+        # Validate field name
+        if not self.field or len(self.field) > 100:
+            raise ValueError("Invalid field name")
+        
+        # Validate severity
+        if self.severity not in ("error", "warning", "info"):
+            raise ValueError("Invalid severity level")
+        
+        # Validate condition based on rule type
+        self._validate_condition()
+        
+        # Validate message
+        if not self.message or len(self.message) > 500:
+            raise ValueError("Invalid error message")
+    
+    def _validate_condition(self) -> None:
+        """Validate condition structure based on rule type."""
+        if not self.condition:
+            raise ValueError("Rule condition cannot be empty")
+        
+        validators = {
+            RuleType.REQUIRED: self._validate_required_condition,
+            RuleType.FORMAT: self._validate_format_condition,
+            RuleType.LENGTH: self._validate_length_condition,
+            RuleType.RANGE: self._validate_range_condition,
+            RuleType.ENUM: self._validate_enum_condition,
+            RuleType.PATTERN: self._validate_pattern_condition,
+            RuleType.DEPENDENCY: self._validate_dependency_condition,
+            RuleType.BUSINESS: self._validate_business_condition,
+            RuleType.COMPOSITE: self._validate_composite_condition,
+        }
+        
+        validator = validators.get(self.type)
+        if validator:
+            validator()
+    
+    def _validate_required_condition(self) -> None:
+        """Required rules need no additional condition."""
+        pass
+    
+    def _validate_format_condition(self) -> None:
+        """Validate format rule condition."""
+        if "format" not in self.condition:
+            raise ValueError("Format rule must specify format")
+    
+    def _validate_length_condition(self) -> None:
+        """Validate length rule condition."""
+        if "min" not in self.condition and "max" not in self.condition:
+            raise ValueError("Length rule must specify min or max")
+    
+    def _validate_range_condition(self) -> None:
+        """Validate range rule condition."""
+        if "min" not in self.condition and "max" not in self.condition:
+            raise ValueError("Range rule must specify min or max")
+    
+    def _validate_enum_condition(self) -> None:
+        """Validate enum rule condition."""
+        if "values" not in self.condition or not isinstance(self.condition["values"], list):
+            raise ValueError("Enum rule must specify values list")
+    
+    def _validate_pattern_condition(self) -> None:
+        """Validate pattern rule condition."""
+        if "pattern" not in self.condition:
+            raise ValueError("Pattern rule must specify regex pattern")
+        # Validate regex compilation
+        try:
+            re.compile(self.condition["pattern"])
+        except re.error as e:
+            raise ValueError(f"Invalid regex pattern: {e}") from e
+    
+    def _validate_dependency_condition(self) -> None:
+        """Validate dependency rule condition."""
+        if "depends_on" not in self.condition:
+            raise ValueError("Dependency rule must specify depends_on field")
+    
+    def _validate_business_condition(self) -> None:
+        """Validate business rule condition."""
+        if "expression" not in self.condition:
+            raise ValueError("Business rule must specify expression")
+    
+    def _validate_composite_condition(self) -> None:
+        """Validate composite rule condition."""
+        if "rules" not in self.condition or not isinstance(self.condition["rules"], list):
+            raise ValueError("Composite rule must specify rules list")
+    
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary representation."""
+        return {
+            "id": str(self.id),
+            "type": self.type.value,
+            "field": self.field,
+            "condition": self.condition,
+            "message": self.message,
+            "severity": self.severity,
+            "metadata": self.metadata or {}
+        }
+    
+    def __str__(self) -> str:
+        return f"Rule({self.id}, type={self.type.value}, field={self.field})"
+
+
+@dataclass(frozen=True)
+class RuleMetadata:
+    """Metadata for rules with tracking information."""
+    
+    created_by: str
+    created_at: datetime
+    modified_by: str | None = None
+    modified_at: datetime | None = None
+    tags: list[str] | None = None
+    description: str | None = None
+    documentation_url: str | None = None
+    
+    def __post_init__(self) -> None:
+        # Validate timestamps are timezone-aware
+        if not self.created_at.tzinfo:
+            raise ValueError("created_at must be timezone-aware")
+        
+        if self.modified_at and not self.modified_at.tzinfo:
+            raise ValueError("modified_at must be timezone-aware")
+        
+        # Validate modified_at is after created_at
+        if self.modified_at and self.modified_at < self.created_at:
+            raise ValueError("modified_at cannot be before created_at")
+        
+        # Validate tags
+        if self.tags:
+            for tag in self.tags:
+                if not tag or len(tag) > 50:
+                    raise ValueError("Invalid tag format")
+        
+        # Validate description length
+        if self.description and len(self.description) > 1000:
+            raise ValueError("Description too long")
+        
+        # Validate documentation URL
+        if self.documentation_url and not self.documentation_url.startswith(("http://", "https://")):
+            raise ValueError("Invalid documentation URL")

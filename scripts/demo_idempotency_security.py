@@ -17,9 +17,9 @@ import sys
 # Add src to path for imports
 sys.path.insert(0, 'src')
 
+from src.application.config import Config, IdempotencyCompatMode
 from src.application.idempotency.resolver import resolve_idempotency_key, validate_resolved_key
 from src.application.idempotency.store import InMemoryIdempotencyStore
-from src.application.config import Config, IdempotencyCompatMode
 from src.domain.value_objects import TenantId
 
 
@@ -182,7 +182,7 @@ def demo_reject_mode():
         try:
             canon_result = resolve_idempotency_key(key, tenant, "POST", "/jobs")
             canon_status = f"✅ {canon_result[:10]}..."
-        except Exception as e:
+        except Exception:
             canon_status = "❌ REJECTED"
         
         # Test reject mode  
@@ -192,7 +192,7 @@ def demo_reject_mode():
         try:
             reject_result = resolve_idempotency_key(key, tenant, "POST", "/jobs")
             reject_status = f"✅ {reject_result[:10]}..."
-        except Exception as e:
+        except Exception:
             reject_status = "❌ REJECTED"
         
         print(f"{key:<18} | {canon_status:<22} | {reject_status}")

@@ -31,6 +31,7 @@ from .value_objects import (
     TenantId,
 )
 
+
 @dataclass
 class Job:
     """
@@ -97,15 +98,6 @@ class Job:
         # Seller ID validation
         if not self.seller_id or not isinstance(self.seller_id, str):
             raise DomainError("seller_id must be a non-empty string")
-        
-        logger.debug(
-            "job_aggregate_initialized",
-            job_id=str(self.id),
-            tenant_id=str(self.tenant_id),
-            status=self.status.value,
-            type=self.type.value,
-            channel=str(self.channel),
-        )
     
     @classmethod
     def create(

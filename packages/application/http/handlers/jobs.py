@@ -4,15 +4,15 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from src.application.config import Config
-from src.application.errors import RateLimitExceeded, ValidationError
-from src.application.idempotency.resolver import resolve_idempotency_key, validate_resolved_key
-from src.application.idempotency.store import IdempotencyConflictError, IdempotencyStore
-from src.application.use_cases.submit_job import (
+from packages.application.config import Config
+from packages.application.errors import RateLimitExceeded, ValidationError
+from packages.application.idempotency.resolver import resolve_idempotency_key, validate_resolved_key
+from packages.application.idempotency.store import IdempotencyConflictError, IdempotencyStore
+from packages.application.use_cases.submit_job import (
     SubmitJobRequest,
     SubmitJobUseCase,
 )
-from src.domain.value_objects import TenantId
+from packages.domain.value_objects import TenantId
 
 # Graceful handling of logging dependencies
 try:
