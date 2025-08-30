@@ -14,6 +14,7 @@ Este diretório contém todas as decisões arquiteturais do ValidaHub.
 | [006](ADR-006-analytics-data-schema.md) | Analytics Data Schema (Star Schema) | Proposed | 2025-08-29 |
 | [007](ADR-007-cross-marketplace-product-classification.md) | Cross-Marketplace Product Classification | Proposed | 2025-08-29 |
 | [008](ADR-008-sdk-development-strategy.md) | SDK Development Strategy | Proposed | 2025-08-29 |
+| [009](ADR-009-smart-rules-engine-architecture.md) | Smart Rules Engine Architecture | Accepted | 2025-08-30 |
 
 ## Status Possíveis
 
