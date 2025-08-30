@@ -89,7 +89,7 @@ class RuleVersion:
         
         Args:
             version: Semantic version for this rule version
-            rules: List of rule definitions
+            rules: List of rule definitions (converted to immutable tuple internally)
             created_by: User who created the version
             tenant_id: Tenant identifier
             description: Optional description
@@ -103,7 +103,7 @@ class RuleVersion:
             id=RuleVersionId(uuid4()),
             version=version,
             status=RuleStatus.DRAFT,
-            rules=rules,
+            rules=tuple(rules) if isinstance(rules, list) else rules,
             metadata=RuleMetadata(
                 created_by=created_by,
                 created_at=datetime.now(timezone.utc),
