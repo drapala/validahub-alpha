@@ -503,8 +503,8 @@ class RuleExecutionEngine:
         cache_key = f"{hash(str(condition))}"
         
         if self.enable_cache and cache_key in self._condition_cache:
-            self._condition_cache[cache_key] += 1  # cache hit counter
-            return self._condition_cache[cache_key]
+            # Return cached result directly without modifying it
+            return self._condition_cache[cache_key].copy()
         
         # Implementar avaliação vetorizada baseada no operator
         if condition.type == ConditionType.SIMPLE:
@@ -714,11 +714,134 @@ class RuleExecutionEngine:
         
     def _evaluate_column_condition(self, condition, column_data):
         """Avalia condição de coluna."""
-        return True
+        # For column-level conditions, delegate to vectorized evaluation
+        # Convert single column to DataFrame for compatibility
+        import pandas as pd
+        if isinstance(column_data, pd.Series):
+            df = pd.DataFrame({condition.field: column_data})
+        else:
+            df = pd.DataFrame({condition.field: [column_data]})
+        
+        result = self._evaluate_condition_vectorized(condition, df)
+        
+        # Return aggregate result for column condition
+        if isinstance(result, pd.Series):
+            # All values must satisfy the condition for column-level validation
+            return result.all()
+        return bool(result)
         
     def _evaluate_row_condition(self, condition, field_value, row):
         """Avalia condição de linha."""
-        return True
+        if not hasattr(condition, 'operator'):
+            logger.warning(f"Condition missing operator: {condition}")
+            return False
+            
+        operator = condition.operator.lower() if hasattr(condition.operator, 'lower') else str(condition.operator).lower()
+        value = condition.compiled_value if hasattr(condition, 'compiled_value') and condition.compiled_value is not None else condition.value
+        
+        # Evaluate based on operator type
+        if operator == "eq":
+            return field_value == value
+        elif operator == "ne":
+            return field_value != value
+        elif operator == "gt":
+            try:
+                return float(field_value) > float(value)
+            except (ValueError, TypeError):
+                return False
+        elif operator == "gte":
+            try:
+                return float(field_value) >= float(value)
+            except (ValueError, TypeError):
+                return False
+        elif operator == "lt":
+            try:
+                return float(field_value) < float(value)
+            except (ValueError, TypeError):
+                return False
+        elif operator == "lte":
+            try:
+                return float(field_value) <= float(value)
+            except (ValueError, TypeError):
+                return False
+        elif operator == "contains":
+            field_str = str(field_value) if field_value is not None else ""
+            value_str = str(value) if value is not None else ""
+            if hasattr(condition, 'case_sensitive') and not condition.case_sensitive:
+                return value_str.lower() in field_str.lower()
+            return value_str in field_str
+        elif operator == "startswith":
+            field_str = str(field_value) if field_value is not None else ""
+            value_str = str(value) if value is not None else ""
+            if hasattr(condition, 'case_sensitive') and not condition.case_sensitive:
+                return field_str.lower().startswith(value_str.lower())
+            return field_str.startswith(value_str)
+        elif operator == "endswith":
+            field_str = str(field_value) if field_value is not None else ""
+            value_str = str(value) if value is not None else ""
+            if hasattr(condition, 'case_sensitive') and not condition.case_sensitive:
+                return field_str.lower().endswith(value_str.lower())
+            return field_str.endswith(value_str)
+        elif operator == "matches":
+            import re
+            field_str = str(field_value) if field_value is not None else ""
+            pattern = condition.compiled_value if hasattr(condition, 'compiled_value') and condition.compiled_value else value
+            try:
+                return bool(re.match(str(pattern), field_str))
+            except re.error:
+                logger.warning(f"Invalid regex pattern: {pattern}")
+                return False
+        elif operator == "in":
+            if isinstance(value, list):
+                return field_value in value
+            return field_value == value
+        elif operator == "not_in":
+            if isinstance(value, list):
+                return field_value not in value
+            return field_value != value
+        elif operator == "empty":
+            return field_value is None or str(field_value).strip() == ""
+        elif operator == "not_empty":
+            return field_value is not None and str(field_value).strip() != ""
+        elif operator == "length_eq":
+            field_str = str(field_value) if field_value is not None else ""
+            return len(field_str) == value
+        elif operator == "length_gt":
+            field_str = str(field_value) if field_value is not None else ""
+            return len(field_str) > value
+        elif operator == "length_lt":
+            field_str = str(field_value) if field_value is not None else ""
+            return len(field_str) < value
+        elif operator == "is_number":
+            try:
+                float(field_value)
+                return True
+            except (ValueError, TypeError):
+                return False
+        elif operator == "is_email":
+            import re
+            field_str = str(field_value) if field_value is not None else ""
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            return bool(re.match(email_pattern, field_str))
+        elif operator == "is_url":
+            import re
+            field_str = str(field_value) if field_value is not None else ""
+            url_pattern = r'^https?://[^\s/$.?#].[^\s]*$'
+            return bool(re.match(url_pattern, field_str))
+        elif operator == "is_date":
+            from datetime import datetime
+            field_str = str(field_value) if field_value is not None else ""
+            # Try common date formats
+            for fmt in ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%Y/%m/%d"]:
+                try:
+                    datetime.strptime(field_str, fmt)
+                    return True
+                except ValueError:
+                    continue
+            return False
+        else:
+            logger.warning(f"Unknown operator: {operator}")
+            return False
         
     def _apply_transform_action(self, action, field_value, row):
         """Aplica ação de transformação."""
