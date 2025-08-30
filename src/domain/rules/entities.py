@@ -5,7 +5,7 @@ This module contains entities that belong to the RuleSet aggregate.
 
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from uuid import uuid4
 
 from src.domain.value_objects import TenantId
@@ -30,12 +30,25 @@ class RuleVersion:
     
     This entity is part of the RuleSet aggregate and manages individual
     rule versions with their lifecycle and validation status.
+    
+    IMMUTABILITY DESIGN:
+    The 'rules' field uses Tuple instead of List to prevent external mutation
+    that would bypass domain validation. This ensures that rule modifications
+    can only happen through proper entity methods that maintain data integrity
+    and business invariants.
+    
+    Example of what this prevents:
+    - rule_version.rules.append(new_rule)  # Would bypass ID uniqueness validation
+    - rule_version.rules.clear()  # Would violate "at least one rule" constraint
+    - rule_version.rules[0] = different_rule  # Would bypass type validation
+    
+    Use get_rules_by_*() methods to safely query rules without mutation risk.
     """
     
     id: RuleVersionId
     version: SemVer
     status: RuleStatus
-    rules: List[RuleDefinition]
+    rules: Tuple[RuleDefinition, ...]
     metadata: RuleMetadata
     validation_errors: Optional[List[str]] = None
     compatibility_notes: Optional[Dict[str, Any]] = None
@@ -285,13 +298,13 @@ class RuleVersion:
                 return rule
         return None
     
-    def get_rules_by_field(self, field: str) -> List[RuleDefinition]:
+    def get_rules_by_field(self, field: str) -> Tuple[RuleDefinition, ...]:
         """Get all rules that apply to a specific field."""
-        return [rule for rule in self.rules if rule.field == field]
+        return tuple(rule for rule in self.rules if rule.field == field)
     
-    def get_rules_by_severity(self, severity: str) -> List[RuleDefinition]:
+    def get_rules_by_severity(self, severity: str) -> Tuple[RuleDefinition, ...]:
         """Get all rules with a specific severity level."""
-        return [rule for rule in self.rules if rule.severity == severity]
+        return tuple(rule for rule in self.rules if rule.severity == severity)
     
     def _add_domain_event(self, event: Any) -> None:
         """Add a domain event to this entity."""
