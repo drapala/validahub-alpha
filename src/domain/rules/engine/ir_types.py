@@ -5,7 +5,9 @@ Este módulo define todas as estruturas de dados usadas pelo compilador
 e runtime engine para representar regras compiladas.
 """
 
-from dataclasses import dataclass, field
+from __future__ import annotations
+
+from dataclasses import dataclass, field as dataclass_field
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -79,7 +81,7 @@ class Transform:
 
     type: TransformType
     expression: str | None = None
-    params: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = dataclass_field(default_factory=dict)
     compiled_expression: Any | None = None
 
 
@@ -98,8 +100,8 @@ class CCMMapping:
     """Mapeamento completo para Canonical CSV Model."""
 
     field_mappings: dict[str, FieldMapping]
-    transforms: dict[str, Transform] = field(default_factory=dict)
-    validation_order: list[str] = field(default_factory=list)
+    transforms: dict[str, Transform] = dataclass_field(default_factory=dict)
+    validation_order: list[str] = dataclass_field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -114,7 +116,7 @@ class CompiledCondition:
     field: str | None = None  # Campo alvo da condição
 
     # Para condições lógicas
-    subconditions: list["CompiledCondition"] = field(default_factory=list)
+    subconditions: list["CompiledCondition"] = dataclass_field(default_factory=list)
     logical_op: str | None = None  # "and", "or", "not"
 
 
@@ -126,11 +128,11 @@ class CompiledAction:
     operation: str | None = None
     value: Any | None = None
     compiled_expression: Any | None = None
-    params: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = dataclass_field(default_factory=dict)
     stop_on_error: bool = False
 
     # Para sugestões
-    suggestions: list[str] = field(default_factory=list)
+    suggestions: list[str] = dataclass_field(default_factory=list)
     confidence: float = 0.8
 
 
@@ -150,7 +152,7 @@ class CompiledRule:
     message: str
     severity: Severity
     enabled: bool = True
-    tags: list[str] = field(default_factory=list)
+    tags: list[str] = dataclass_field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -159,7 +161,7 @@ class RuleGroup:
 
     rule_ids: list[str]
     execution_mode: ExecutionMode
-    dependencies: list[str] = field(default_factory=list)
+    dependencies: list[str] = dataclass_field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -177,10 +179,10 @@ class ExecutionPlan:
     """Plano completo de execução otimizado."""
 
     phases: list[ExecutionPhase]
-    optimizations: list[str] = field(default_factory=list)
-    field_index: dict[str, list[str]] = field(default_factory=dict)
-    precedence_index: dict[int, list[str]] = field(default_factory=dict)
-    parallel_groups: list[list[str]] = field(default_factory=list)
+    optimizations: list[str] = dataclass_field(default_factory=list)
+    field_index: dict[str, list[str]] = dataclass_field(default_factory=dict)
+    precedence_index: dict[int, list[str]] = dataclass_field(default_factory=dict)
+    parallel_groups: list[list[str]] = dataclass_field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -202,8 +204,8 @@ class CompilationStats:
     """Estatísticas de compilação."""
 
     total_rules: int = 0
-    rules_by_type: dict[str, int] = field(default_factory=dict)
-    rules_by_field: dict[str, int] = field(default_factory=dict)
+    rules_by_type: dict[str, int] = dataclass_field(default_factory=dict)
+    rules_by_field: dict[str, int] = dataclass_field(default_factory=dict)
     compilation_time_ms: float = 0.0
     optimizations_applied: int = 0
     warnings_count: int = 0
