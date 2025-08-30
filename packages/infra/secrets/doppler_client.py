@@ -6,7 +6,6 @@ ensuring no secrets are stored in environment variables or code.
 
 import os
 import subprocess
-from functools import lru_cache
 from typing import Any
 
 import httpx
@@ -96,7 +95,6 @@ class DopplerClient:
             pass
         return None
 
-    @lru_cache(maxsize=1)
     def fetch_secrets(self, include_dynamic: bool = True) -> dict[str, str]:
         """
         Fetch all secrets from Doppler.

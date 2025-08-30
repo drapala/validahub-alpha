@@ -7,15 +7,10 @@ Este script demonstra como usar o sistema de regras completo:
 3. Análise dos resultados
 """
 
-import json
-import pandas as pd
-from pathlib import Path
 
-from src.domain.rules.engine import (
-    RuleCompiler, RuleExecutionEngine,
-    CompilationError
-)
+import pandas as pd
 from src.application.services import CCMValidationService
+from src.domain.rules.engine import CompilationError, RuleCompiler, RuleExecutionEngine
 
 
 def main():
@@ -150,17 +145,17 @@ rules:
     
     try:
         # 3. Compilar regras
-        print(f"\n🔧 Compilando regras...")
+        print("\n🔧 Compilando regras...")
         compiler = RuleCompiler()
         compiled_rules = compiler.compile_yaml(rules_yaml)
         
-        print(f"✅ Compilação concluída:")
+        print("✅ Compilação concluída:")
         print(f"   - {len(compiled_rules.rules)} regras compiladas")
         print(f"   - {len(compiled_rules.execution_plan.phases)} fases de execução")
         print(f"   - Checksum: {compiled_rules.checksum[:8]}...")
         
         # 4. Executar regras
-        print(f"\n⚡ Executando regras...")
+        print("\n⚡ Executando regras...")
         engine = RuleExecutionEngine(
             enable_vectorization=True,
             enable_cache=True
@@ -169,7 +164,7 @@ rules:
         result = engine.execute_rules(compiled_rules, test_data)
         
         # 5. Analisar resultados
-        print(f"\n📈 Resultados da execução:")
+        print("\n📈 Resultados da execução:")
         print(f"   - Tempo: {result.stats.execution_time_ms:.2f}ms")
         print(f"   - Regras executadas: {result.stats.rules_executed}")
         print(f"   - Erros: {len(result.errors)}")
@@ -179,21 +174,21 @@ rules:
         
         # 6. Mostrar erros
         if result.errors:
-            print(f"\n❌ ERROS ENCONTRADOS:")
+            print("\n❌ ERROS ENCONTRADOS:")
             for error in result.errors:
                 print(f"   Linha {error.row_index}: {error.field} - {error.message}")
                 print(f"      Valor: '{error.actual_value}'")
         
         # 7. Mostrar warnings
         if result.warnings:
-            print(f"\n⚠️  WARNINGS:")
+            print("\n⚠️  WARNINGS:")
             for warning in result.warnings:
                 print(f"   Linha {warning.row_index}: {warning.field} - {warning.message}")
                 print(f"      Valor: '{warning.actual_value}'")
         
         # 8. Mostrar transformações
         if result.transformations:
-            print(f"\n🔄 TRANSFORMAÇÕES APLICADAS:")
+            print("\n🔄 TRANSFORMAÇÕES APLICADAS:")
             for transform in result.transformations:
                 print(f"   Linha {transform.row_index}: {transform.field}")
                 print(f"      De: '{transform.original_value}'")
@@ -201,7 +196,7 @@ rules:
         
         # 9. Mostrar sugestões
         if result.suggestions:
-            print(f"\n💡 SUGESTÕES:")
+            print("\n💡 SUGESTÕES:")
             for suggestion in result.suggestions:
                 print(f"   Linha {suggestion.row_index}: {suggestion.field}")
                 print(f"      Atual: '{suggestion.current_value}'")
@@ -209,7 +204,7 @@ rules:
                 print(f"      Confiança: {suggestion.confidence:.1%}")
         
         # 10. Validação CCM (exemplo adicional)
-        print(f"\n🔍 VALIDAÇÃO CCM:")
+        print("\n🔍 VALIDAÇÃO CCM:")
         ccm_service = CCMValidationService()
         for idx, row in test_data.iterrows():
             ccm_validation = ccm_service.validate_record(row.to_dict())
@@ -218,7 +213,7 @@ rules:
             print(f"   Linha {idx}: {valid_fields}/{total_fields} campos válidos")
         
         # 11. Relatório de performance
-        print(f"\n⚡ PERFORMANCE:")
+        print("\n⚡ PERFORMANCE:")
         throughput = len(test_data) / (result.stats.execution_time_ms / 1000)
         print(f"   - Throughput: {throughput:.0f} linhas/seg")
         print(f"   - Memória: {result.stats.memory_usage_mb:.1f}MB")
@@ -226,14 +221,14 @@ rules:
         
         # 12. Status final
         success_rate = 1 - (len(result.errors) / len(test_data))
-        print(f"\n✅ RESUMO FINAL:")
+        print("\n✅ RESUMO FINAL:")
         print(f"   - Taxa de sucesso: {success_rate:.1%}")
         print(f"   - Qualidade dos dados: {'boa' if success_rate > 0.8 else 'necessita atenção'}")
         
         if result.has_errors:
-            print(f"   - ⚠️  Dados contêm erros que precisam ser corrigidos")
+            print("   - ⚠️  Dados contêm erros que precisam ser corrigidos")
         else:
-            print(f"   - ✅ Todos os dados passaram nas validações críticas")
+            print("   - ✅ Todos os dados passaram nas validações críticas")
             
     except CompilationError as e:
         print(f"\n❌ Erro de compilação: {e}")
@@ -247,7 +242,7 @@ rules:
         traceback.print_exc()
         return 1
     
-    print(f"\n" + "=" * 60)
+    print("\n" + "=" * 60)
     print("EXEMPLO CONCLUÍDO COM SUCESSO!")
     print("=" * 60)
     return 0

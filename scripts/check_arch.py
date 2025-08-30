@@ -22,7 +22,7 @@ def check_domain_imports():
             if file.endswith('.py'):
                 filepath = os.path.join(root, file)
                 try:
-                    with open(filepath, 'r') as f:
+                    with open(filepath) as f:
                         tree = ast.parse(f.read())
                     
                     for node in ast.walk(tree):
@@ -53,7 +53,7 @@ def check_application_imports():
             if file.endswith('.py'):
                 filepath = os.path.join(root, file)
                 try:
-                    with open(filepath, 'r') as f:
+                    with open(filepath) as f:
                         tree = ast.parse(f.read())
                     
                     for node in ast.walk(tree):

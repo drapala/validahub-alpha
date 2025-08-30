@@ -14,26 +14,29 @@ dependency injection for all external services.
 
 import time
 from contextlib import asynccontextmanager
-from typing import Dict, Any
+from typing import Any
 
-from fastapi import FastAPI, Request, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from packages.domain.errors import (
-    DomainError, RateLimitExceededError, SecurityViolationError,
-    TenantIsolationError, IdempotencyViolationError
-)
 from packages.application.config import get_config
+from packages.domain.errors import (
+    DomainError,
+    IdempotencyViolationError,
+    RateLimitExceededError,
+    SecurityViolationError,
+    TenantIsolationError,
+)
 from packages.infra.auth.jwt_service import JWTService
 from packages.infra.middleware.security_headers import SecurityHeadersMiddleware
 
 try:
     from packages.shared.logging import get_logger
-    from packages.shared.telemetry import get_tracer, get_metrics
+    from packages.shared.telemetry import get_metrics, get_tracer
 except ImportError:
     import logging
     def get_logger(name: str):
@@ -259,7 +262,7 @@ class AuthenticationMiddleware(BaseHTTPMiddleware):
                 headers={"WWW-Authenticate": "Bearer"},
             )
     
-    async def _validate_token(self, token: str) -> Dict[str, Any]:
+    async def _validate_token(self, token: str) -> dict[str, Any]:
         """
         Validate JWT token and extract claims using secure JWT service.
         
@@ -434,7 +437,7 @@ async def readiness_check():
 
 
 # Dependency injection helpers
-def get_request_context(request: Request) -> Dict[str, Any]:
+def get_request_context(request: Request) -> dict[str, Any]:
     """Get request context for dependency injection."""
     return {
         "request_id": getattr(request.state, 'request_id', None),
@@ -445,7 +448,7 @@ def get_request_context(request: Request) -> Dict[str, Any]:
 
 
 # Include routers
-from .routers import jobs
+from .routers import jobs  # noqa: E402
 
 app.include_router(
     jobs.router,

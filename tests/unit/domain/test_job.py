@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+
 from packages.domain.errors import DomainError, InvalidStateTransitionError
 from packages.domain.job import Job, JobStatus
 from packages.domain.value_objects import JobId, TenantId

@@ -6,7 +6,9 @@ the LGPD-compliant logging system manually.
 """
 
 import os
+
 from shared.logging import configure_logging
+
 
 def setup_logging():
     """
@@ -35,8 +37,8 @@ def setup_logging():
     print(f"✅ Logging configured for {environment} environment")
     print(f"   - Log level: {log_level}")
     print(f"   - Format: {'JSON' if json_logs else 'Key-Value'}")
-    print(f"   - LGPD compliance: ENABLED")
-    print(f"   - Sensitive data masking: ACTIVE")
+    print("   - LGPD compliance: ENABLED")
+    print("   - Sensitive data masking: ACTIVE")
     
 
 if __name__ == "__main__":
@@ -44,7 +46,7 @@ if __name__ == "__main__":
     setup_logging()
     
     from shared.logging import get_logger
-    from shared.logging.security import SecurityLogger, AuditLogger
+    from shared.logging.security import AuditLogger, SecurityLogger
     
     # Regular logging
     logger = get_logger("example")

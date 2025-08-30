@@ -11,19 +11,26 @@ All endpoints follow the OpenAPI specification and include
 proper validation, authorization, and error handling.
 """
 
-from typing import List, Optional, Dict, Any
+import time
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Request, Depends, HTTPException, status, Header, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from packages.application.use_cases.submit_job import SubmitJobUseCase, SubmitJobRequest, SubmitJobResponse
-from packages.application.use_cases.get_job import GetJobUseCase, GetJobRequest, GetJobResponse
-from packages.application.use_cases.retry_job import RetryJobUseCase, RetryJobRequest, RetryJobResponse
+from packages.application.use_cases.get_job import GetJobRequest, GetJobUseCase
+from packages.application.use_cases.retry_job import (
+    RetryJobRequest,
+    RetryJobUseCase,
+)
+from packages.application.use_cases.submit_job import (
+    SubmitJobRequest,
+    SubmitJobUseCase,
+)
 from packages.domain.errors import (
-    DomainError, AggregateNotFoundError, RateLimitExceededError,
-    IdempotencyViolationError, SecurityViolationError
+    AggregateNotFoundError,
+    DomainError,
 )
 
 try:
@@ -46,8 +53,8 @@ class SubmitJobRequestModel(BaseModel):
     file_ref: str = Field(..., description="Reference to input file")
     rules_profile_id: str = Field(..., description="Rule pack version to use", regex=r"^[a-z_]+@\d+\.\d+\.\d+$")
     seller_id: str = Field(..., description="Seller identifier")
-    callback_url: Optional[str] = Field(None, description="Optional webhook URL for notifications")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    callback_url: str | None = Field(None, description="Optional webhook URL for notifications")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
     
     class Config:
         schema_extra = {
@@ -72,20 +79,20 @@ class JobResponseModel(BaseModel):
     type: str = Field(..., description="Type of processing")
     status: str = Field(..., description="Current job status")
     file_ref: str = Field(..., description="Reference to input file")
-    output_ref: Optional[str] = Field(None, description="Reference to output file")
+    output_ref: str | None = Field(None, description="Reference to output file")
     rules_profile_id: str = Field(..., description="Rule pack version used")
-    counters: Dict[str, int] = Field(..., description="Processing counters")
-    callback_url: Optional[str] = Field(None, description="Webhook URL")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    counters: dict[str, int] = Field(..., description="Processing counters")
+    callback_url: str | None = Field(None, description="Webhook URL")
+    metadata: dict[str, Any] | None = Field(None, description="Additional metadata")
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: str = Field(..., description="Last update timestamp")
-    completed_at: Optional[str] = Field(None, description="Completion timestamp")
+    completed_at: str | None = Field(None, description="Completion timestamp")
 
 
 class JobListResponseModel(BaseModel):
     """Response model for job listing."""
-    data: List[JobResponseModel] = Field(..., description="List of jobs")
-    meta: Dict[str, Any] = Field(..., description="Pagination metadata")
+    data: list[JobResponseModel] = Field(..., description="List of jobs")
+    meta: dict[str, Any] = Field(..., description="Pagination metadata")
 
 
 class RetryJobResponseModel(BaseModel):
@@ -134,8 +141,8 @@ def validate_tenant_header(x_tenant_id: str = Header(..., description="Tenant id
 
 
 def validate_idempotency_key(
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key")
-) -> Optional[str]:
+    idempotency_key: str | None = Header(None, alias="Idempotency-Key")
+) -> str | None:
     """Validate idempotency key header for POST operations."""
     if idempotency_key:
         if len(idempotency_key) < 16 or len(idempotency_key) > 128:
@@ -147,7 +154,7 @@ def validate_idempotency_key(
     return idempotency_key
 
 
-def get_request_context(request: Request) -> Dict[str, Any]:
+def get_request_context(request: Request) -> dict[str, Any]:
     """Extract request context from FastAPI request."""
     return {
         "request_id": getattr(request.state, 'request_id', None),
@@ -168,8 +175,8 @@ async def submit_job(
     request: Request,
     job_request: SubmitJobRequestModel,
     tenant_id: str = Depends(validate_tenant_header),
-    idempotency_key: Optional[str] = Depends(validate_idempotency_key),
-    submit_job_use_case: SubmitJobUseCase = Depends(get_submit_job_use_case),
+    idempotency_key: str | None = Depends(validate_idempotency_key),
+    submit_job_use_case: SubmitJobUseCase = Depends(get_submit_job_use_case),  # noqa: B008
 ):
     """Submit a new job for processing."""
     try:
@@ -248,7 +255,7 @@ async def get_job(
     request: Request,
     job_id: UUID,
     tenant_id: str = Depends(validate_tenant_header),
-    get_job_use_case: GetJobUseCase = Depends(get_get_job_use_case),
+    get_job_use_case: GetJobUseCase = Depends(get_get_job_use_case),  # noqa: B008
 ):
     """Get job details by ID."""
     try:
@@ -312,7 +319,7 @@ async def retry_job(
     request: Request,
     job_id: UUID,
     tenant_id: str = Depends(validate_tenant_header),
-    retry_job_use_case: RetryJobUseCase = Depends(get_retry_job_use_case),
+    retry_job_use_case: RetryJobUseCase = Depends(get_retry_job_use_case),  # noqa: B008
 ):
     """Retry a failed job."""
     try:
@@ -375,9 +382,9 @@ async def retry_job(
 async def list_jobs(
     request: Request,
     tenant_id: str = Depends(validate_tenant_header),
-    status: Optional[str] = Query(None, description="Filter by job status"),
-    channel: Optional[str] = Query(None, description="Filter by channel"),
-    type: Optional[str] = Query(None, description="Filter by job type"),
+    status: str | None = Query(None, description="Filter by job status"),
+    channel: str | None = Query(None, description="Filter by channel"),
+    type: str | None = Query(None, description="Filter by job type"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of results"),
     offset: int = Query(0, ge=0, description="Number of results to skip"),
 ):
@@ -471,7 +478,7 @@ async def stream_job_events(
                 error=str(error),
                 error_type=error.__class__.__name__,
             )
-            yield f"event: error\ndata: {{\"error\": \"Stream error occurred\"}}\n\n"
+            yield "event: error\ndata: {\"error\": \"Stream error occurred\"}\n\n"
         
         finally:
             logger.info(

@@ -5,8 +5,9 @@ WARNING: These keys should ONLY be used for development.
 Production keys must be managed through Doppler/Vault.
 """
 
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.infrastructure.auth.jwt_service import JWTKeyGenerator
@@ -63,7 +64,7 @@ def main():
         # Read existing or create new
         existing_env = {}
         if os.path.exists(env_file):
-            with open(env_file, "r") as f:
+            with open(env_file) as f:
                 for line in f:
                     if "=" in line and not line.startswith("#"):
                         key, value = line.strip().split("=", 1)

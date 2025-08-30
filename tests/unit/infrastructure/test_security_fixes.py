@@ -8,10 +8,11 @@ import pytest
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from packages.domain.errors import SecurityViolationError
 from src.application.config import Config, Environment
 from src.infrastructure.auth.jwt_service import JWTKeyGenerator, JWTService
 from src.infrastructure.secrets.doppler_client import DopplerClient, SecretsManager
+
+from packages.domain.errors import SecurityViolationError
 
 
 class TestJWTSecurity:
