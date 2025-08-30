@@ -210,8 +210,8 @@ class TestRuleVersionImmutabilityIssues:
     despite Tuple type annotation. This breaks the immutability design.
     """
     
-    def test_rules_field_should_be_tuple_but_currently_is_list(self):
-        """DOCUMENTS CURRENT ISSUE: RuleVersion.rules is List, should be Tuple."""
+    def test_rules_field_is_properly_tuple_not_list(self):
+        """VERIFIED: RuleVersion.rules is now properly Tuple, not List."""
         rule_definition = RuleDefinition(
             id=RuleId("test_rule"),
             type=RuleType.REQUIRED,
@@ -228,21 +228,20 @@ class TestRuleVersionImmutabilityIssues:
             tenant_id=TenantId("t_test123")
         )
         
-        # ❌ CURRENT STATE: Still a list (breaks immutability)
-        assert isinstance(rule_version.rules, list)
-        assert not isinstance(rule_version.rules, tuple)
+        # ✅ FIXED: Now properly a tuple (immutable)
+        assert isinstance(rule_version.rules, tuple)
+        assert not isinstance(rule_version.rules, list)
         
-        # ❌ SECURITY ISSUE: Can be mutated externally!
-        original_length = len(rule_version.rules)
-        rule_version.rules.append(rule_definition)  # This should NOT be possible!
-        assert len(rule_version.rules) == original_length + 1
+        # ✅ SECURITY: Cannot be mutated externally!
+        with pytest.raises(AttributeError):
+            rule_version.rules.append(rule_definition)  # Now properly fails!
         
-        # ❌ SECURITY ISSUE: Can be cleared externally!
-        rule_version.rules.clear()  # This should NOT be possible!
-        assert len(rule_version.rules) == 0
+        # ✅ SECURITY: Cannot be cleared externally!
+        with pytest.raises(AttributeError):
+            rule_version.rules.clear()  # Now properly fails!
     
-    def test_rules_field_type_annotation_vs_runtime_mismatch(self):
-        """DOCUMENTS TYPE SAFETY ISSUE: Type annotation vs runtime type mismatch."""
+    def test_rules_field_type_annotation_matches_runtime(self):
+        """VERIFIED: Type annotation matches runtime type (both Tuple)."""
         from typing import get_type_hints
         
         # Type annotation says Tuple
@@ -250,7 +249,7 @@ class TestRuleVersionImmutabilityIssues:
         rules_annotation = type_hints['rules']
         assert str(rules_annotation).startswith('typing.Tuple')
         
-        # But runtime object is List
+        # Runtime object is also Tuple
         rule_definition = RuleDefinition(
             id=RuleId("test_rule"),
             type=RuleType.REQUIRED,
@@ -267,9 +266,9 @@ class TestRuleVersionImmutabilityIssues:
             tenant_id=TenantId("t_test123")
         )
         
-        # ❌ TYPE SAFETY BROKEN: Annotation says Tuple, runtime is List
-        assert not isinstance(rule_version.rules, tuple)
-        assert isinstance(rule_version.rules, list)
+        # ✅ TYPE SAFETY MAINTAINED: Annotation and runtime both Tuple
+        assert isinstance(rule_version.rules, tuple)
+        assert not isinstance(rule_version.rules, list)
     
     def test_frozen_dataclass_prevents_field_assignment(self):
         """Frozen dataclass should prevent direct field assignment."""
@@ -317,7 +316,6 @@ class TestRuleVersionImmutabilityGoalState:
     When the implementation is fixed, these tests should pass.
     """
     
-    @pytest.mark.xfail(reason="RuleVersion.rules not yet converted to Tuple - needs implementation fix")
     def test_rules_tuple_should_be_immutable(self):
         """RuleVersion.rules SHOULD be immutable tuple, not mutable list."""
         rule_definition = RuleDefinition(
@@ -349,7 +347,6 @@ class TestRuleVersionImmutabilityGoalState:
         with pytest.raises(AttributeError):
             rule_version.rules.extend([])  # type: ignore
     
-    @pytest.mark.xfail(reason="RuleVersion.rules not yet converted to Tuple - needs implementation fix")
     def test_rules_tuple_assignment_should_fail(self):
         """Should not be able to assign to tuple indices."""
         rule_definition = RuleDefinition(
@@ -372,7 +369,6 @@ class TestRuleVersionImmutabilityGoalState:
         with pytest.raises(TypeError):
             rule_version.rules[0] = rule_definition  # type: ignore
     
-    @pytest.mark.xfail(reason="RuleVersion.rules not yet converted to Tuple - needs implementation fix")
     def test_single_rule_collection_should_be_immutable_tuple(self):
         """Single-rule collections SHOULD be immutable tuples."""
         rule_definition = RuleDefinition(
@@ -399,7 +395,6 @@ class TestRuleVersionImmutabilityGoalState:
         with pytest.raises(AttributeError):
             rule_version.rules.append("anything")  # type: ignore
     
-    @pytest.mark.xfail(reason="RuleVersion.rules not yet converted to Tuple - needs implementation fix")
     def test_multiple_rules_collection_should_be_immutable_tuple(self):
         """Multi-rule collections SHOULD be immutable tuples.""" 
         rule1 = RuleDefinition(
@@ -658,7 +653,6 @@ class TestImmutabilityRealWorldScenarios:
         with pytest.raises(AttributeError):  
             versions_ref.append("anything")  # type: ignore
     
-    @pytest.mark.xfail(reason="RuleVersion.rules still uses List - breaks defensive copying safety")
     def test_defensive_copying_needed_for_broken_implementation(self):
         """RuleVersion.rules currently needs defensive copying (shouldn't be necessary)."""
         rule_definition = RuleDefinition(
@@ -687,7 +681,6 @@ class TestImmutabilityRealWorldScenarios:
         with pytest.raises(AttributeError):  
             rules_ref.append("anything")  # type: ignore
     
-    @pytest.mark.xfail(reason="RuleVersion.rules not yet converted to Tuple - needs implementation fix")
     def test_immutable_collections_preserve_type_safety(self):
         """Immutable design SHOULD maintain type safety."""
         rule1 = RuleDefinition(
