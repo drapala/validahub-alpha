@@ -345,7 +345,5 @@ class RuleMetadata:
             raise ValueError("Description too long")
         
         # Validate documentation URL
-        if self.documentation_url:
-            parsed = urlparse(self.documentation_url)
-            if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            if not parsed.scheme or parsed.scheme not in ("http", "https") or not parsed.netloc:
                 raise ValueError("Invalid documentation URL")
