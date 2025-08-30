@@ -149,6 +149,7 @@ class TestDomainLayerPurity:
             "json",  # Standard library for JSON handling
             "logging",  # Standard library for logging
             "time",  # Standard library for time operations
+            "collections",  # Standard library for collections including abc
         ]
 
         # TEMPORARY: Allow utility libraries in rules engine until proper refactor

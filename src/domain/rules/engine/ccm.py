@@ -656,27 +656,27 @@ class CanonicalCSVModel:
 
     def _validate_date(self, field_def: CCMField, value: Any) -> CCMValidationResult:
         """Valida campo data."""
-        # NOTE: This parsing logic should be moved to application layer
-        # For now, using dateutil as a pragmatic choice
-        try:
-            from dateutil import parser
-
-            parsed_date = parser.parse(str(value))
+        from datetime import datetime
+        
+        # Accept datetime objects directly - parsing should be done in application layer
+        if isinstance(value, datetime):
             return CCMValidationResult(
                 field=field_def.name,
                 is_valid=True,
                 original_value=value,
-                normalized_value=parsed_date.isoformat(),
+                normalized_value=value.isoformat(),
             )
-        except (ValueError, TypeError):
-            return CCMValidationResult(
-                field=field_def.name,
-                is_valid=False,
-                severity=ValidationSeverity.ERROR,
-                message=f"'{value}' não é uma data válida",
-                original_value=value,
-                suggestion="Use formato: YYYY-MM-DD ou DD/MM/YYYY",
-            )
+        
+        # If we receive a string, it means the application layer didn't parse it
+        # This is a validation error - the domain expects parsed dates
+        return CCMValidationResult(
+            field=field_def.name,
+            is_valid=False,
+            severity=ValidationSeverity.ERROR,
+            message=f"Expected datetime object, got {type(value).__name__}",
+            original_value=value,
+            suggestion="Date parsing should be handled by application layer factories",
+        )
 
     def _validate_currency(self, field_def: CCMField, value: Any) -> CCMValidationResult:
         """Valida campo moeda."""
@@ -818,12 +818,14 @@ class CanonicalCSVModel:
 
     def _normalize_date(self, value: Any) -> str:
         """Normaliza data."""
-        # NOTE: This parsing logic should be moved to application layer
-        # For now, using dateutil as a pragmatic choice
-        from dateutil import parser
-
-        parsed_date = parser.parse(str(value))
-        return parsed_date.isoformat()
+        from datetime import datetime
+        
+        # Domain expects datetime objects - parsing is application layer responsibility
+        if isinstance(value, datetime):
+            return value.isoformat()
+        
+        # If not a datetime, return as-is and let validation catch it
+        return str(value)
 
     def _normalize_currency(self, value: Any) -> str:
         """Normaliza moeda."""

@@ -12,9 +12,10 @@ import pandas as pd
 from pathlib import Path
 
 from src.domain.rules.engine import (
-    RuleCompiler, RuleExecutionEngine, CCM,
+    RuleCompiler, RuleExecutionEngine,
     CompilationError
 )
+from src.application.services import CCMValidationService
 
 
 def main():
@@ -209,8 +210,9 @@ rules:
         
         # 10. Validação CCM (exemplo adicional)
         print(f"\n🔍 VALIDAÇÃO CCM:")
+        ccm_service = CCMValidationService()
         for idx, row in test_data.iterrows():
-            ccm_validation = CCM.validate_record(row.to_dict())
+            ccm_validation = ccm_service.validate_record(row.to_dict())
             valid_fields = sum(1 for v in ccm_validation if v.is_valid)
             total_fields = len(ccm_validation)
             print(f"   Linha {idx}: {valid_fields}/{total_fields} campos válidos")
