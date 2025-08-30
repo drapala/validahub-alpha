@@ -12,6 +12,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from jwt import PyJWKClient
+
 from packages.domain.errors import SecurityViolationError
 from packages.shared.logging import get_logger
 
@@ -191,7 +192,7 @@ class JWTService:
                 algorithms=[self.algorithm],
             )
             return unverified.get("jti")
-        except:
+        except Exception:
             return None
 
     async def revoke_token(self, token: str) -> None:

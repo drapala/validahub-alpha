@@ -3,9 +3,10 @@
 This module contains the RuleSet aggregate root following DDD principles.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from src.domain.value_objects import Channel, TenantId
@@ -58,15 +59,15 @@ class RuleSet:
     tenant_id: TenantId
     channel: Channel
     name: str
-    description: Optional[str]
-    versions: Tuple[RuleVersion, ...]
-    current_version: Optional[SemVer]
-    published_versions: Tuple[SemVer, ...]
-    deprecated_versions: Tuple[SemVer, ...]
+    description: str | None
+    versions: tuple[RuleVersion, ...]
+    current_version: SemVer | None
+    published_versions: tuple[SemVer, ...]
+    deprecated_versions: tuple[SemVer, ...]
     compatibility_policy: Mapping[str, Any]
     created_at: datetime
     updated_at: datetime
-    _domain_events: List[Any] = field(default_factory=list, init=False, compare=False)
+    _domain_events: list[Any] = field(default_factory=list, init=False, compare=False)
     
     def __post_init__(self) -> None:
         """Validate aggregate invariants."""
@@ -107,10 +108,10 @@ class RuleSet:
         tenant_id: TenantId,
         channel: Channel,
         name: str,
-        description: Optional[str] = None,
-        compatibility_policy: Optional[Dict[str, Any]] = None,
+        description: str | None = None,
+        compatibility_policy: dict[str, Any] | None = None,
         created_by: str = None,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleSet":
         """
         Factory method to create a new RuleSet.
@@ -142,8 +143,8 @@ class RuleSet:
                 "shadow_period_days": 30,
                 "require_major_opt_in": True
             },
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc)
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC)
         )
         
         # Emit creation event
@@ -164,7 +165,7 @@ class RuleSet:
         self,
         version: RuleVersion,
         added_by: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleSet":
         """
         Add a new rule version to the set.
@@ -204,7 +205,7 @@ class RuleSet:
         new_rule_set = replace(
             self,
             versions=new_versions,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
             _domain_events=[]  # Create new RuleSet with empty events list
         )
         
@@ -228,7 +229,7 @@ class RuleSet:
         checksum: str,
         published_by: str,
         make_current: bool = True,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleSet":
         """
         Publish a specific version making it available for use.
@@ -270,7 +271,7 @@ class RuleSet:
             versions=new_versions,
             published_versions=new_published,
             current_version=new_current,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
             _domain_events=[]  # Create new RuleSet with empty events list
         )
         
@@ -296,8 +297,8 @@ class RuleSet:
         self,
         version: SemVer,
         deprecated_by: str,
-        reason: Optional[str] = None,
-        correlation_id: Optional[str] = None
+        reason: str | None = None,
+        correlation_id: str | None = None
     ) -> "RuleSet":
         """
         Deprecate a specific version.
@@ -342,7 +343,7 @@ class RuleSet:
             versions=new_versions,
             published_versions=new_published,
             deprecated_versions=new_deprecated,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
             _domain_events=[]  # Create new RuleSet with empty events list
         )
         
@@ -369,7 +370,7 @@ class RuleSet:
         version: SemVer,
         rolled_back_by: str,
         reason: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleSet":
         """
         Rollback current version to a previous published version.
@@ -400,7 +401,7 @@ class RuleSet:
         new_rule_set = replace(
             self,
             current_version=version,
-            updated_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(UTC),
             _domain_events=[]  # Create new RuleSet with empty events list
         )
         
@@ -419,24 +420,24 @@ class RuleSet:
         
         return new_rule_set
     
-    def get_current_version(self) -> Optional[RuleVersion]:
+    def get_current_version(self) -> RuleVersion | None:
         """Get the current active version."""
         if not self.current_version:
             return None
         return self._get_version(self.current_version)
     
-    def get_latest_version(self) -> Optional[RuleVersion]:
+    def get_latest_version(self) -> RuleVersion | None:
         """Get the latest version (published or not)."""
         if not self.versions:
             return None
         # Use SemVer's built-in comparison
         return max(self.versions, key=lambda v: v.version)
     
-    def get_published_versions(self) -> Tuple[RuleVersion, ...]:
+    def get_published_versions(self) -> tuple[RuleVersion, ...]:
         """Get all published versions."""
         return tuple(v for v in self.versions if v.version in self.published_versions)
     
-    def get_compatible_upgrade(self, from_version: SemVer) -> Optional[RuleVersion]:
+    def get_compatible_upgrade(self, from_version: SemVer) -> RuleVersion | None:
         """
         Find the best compatible upgrade from a given version.
         
@@ -467,7 +468,7 @@ class RuleSet:
         candidates.sort(key=lambda x: (x[1], x[0].version), reverse=True)
         return candidates[0][0]
     
-    def _get_version(self, version: SemVer) -> Optional[RuleVersion]:
+    def _get_version(self, version: SemVer) -> RuleVersion | None:
         """Get a specific version by SemVer."""
         for v in self.versions:
             if v.version == version:
@@ -478,7 +479,7 @@ class RuleSet:
         """Add a domain event to this aggregate."""
         self._domain_events.append(event)
     
-    def get_domain_events(self) -> List[Any]:
+    def get_domain_events(self) -> list[Any]:
         """Get all domain events from this aggregate and its entities."""
         events = list(self._domain_events)
         

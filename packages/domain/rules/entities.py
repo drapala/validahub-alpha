@@ -4,8 +4,8 @@ This module contains entities that belong to the RuleSet aggregate.
 """
 
 from dataclasses import dataclass, field, replace
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from src.domain.value_objects import TenantId
@@ -54,12 +54,12 @@ class RuleVersion:
     id: RuleVersionId
     version: SemVer
     status: RuleStatus
-    rules: Tuple[RuleDefinition, ...]
+    rules: tuple[RuleDefinition, ...]
     metadata: RuleMetadata
-    validation_errors: Optional[List[str]] = None
-    compatibility_notes: Optional[Dict[str, Any]] = None
-    checksum: Optional[str] = None
-    _domain_events: List[Any] = field(default_factory=list, init=False, compare=False)
+    validation_errors: list[str] | None = None
+    compatibility_notes: dict[str, Any] | None = None
+    checksum: str | None = None
+    _domain_events: list[Any] = field(default_factory=list, init=False, compare=False)
     
     def __post_init__(self) -> None:
         """Validate entity invariants."""
@@ -83,12 +83,12 @@ class RuleVersion:
     def create(
         cls,
         version: SemVer,
-        rules: List[RuleDefinition],
+        rules: list[RuleDefinition],
         created_by: str,
         tenant_id: TenantId,
-        description: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        correlation_id: Optional[str] = None
+        description: str | None = None,
+        tags: list[str] | None = None,
+        correlation_id: str | None = None
     ) -> "RuleVersion":
         """
         Factory method to create a new RuleVersion in DRAFT status.
@@ -106,7 +106,7 @@ class RuleVersion:
             New RuleVersion instance in DRAFT status with domain events
         """
         # Validate rules input type
-        if not isinstance(rules, (list, tuple)):
+        if not isinstance(rules, list | tuple):
             raise TypeError(f"Rules must be list or tuple, got {type(rules).__name__}")
         
         rule_version = cls(
@@ -116,7 +116,7 @@ class RuleVersion:
             rules=tuple(rules),
             metadata=RuleMetadata(
                 created_by=created_by,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
                 description=description,
                 tags=tags
             ),
@@ -144,8 +144,8 @@ class RuleVersion:
         tenant_id: TenantId,
         validated_by: str,
         validation_result: bool,
-        errors: Optional[List[str]] = None,
-        correlation_id: Optional[str] = None
+        errors: list[str] | None = None,
+        correlation_id: str | None = None
     ) -> "RuleVersion":
         """
         Validate the rule version and transition to VALIDATED status if successful.
@@ -174,7 +174,7 @@ class RuleVersion:
             metadata=replace(
                 self.metadata,
                 modified_by=validated_by,
-                modified_at=datetime.now(timezone.utc)
+                modified_at=datetime.now(UTC)
             ),
             _domain_events=[]  # Create new entity with empty events list
         )
@@ -218,14 +218,14 @@ class RuleVersion:
             metadata=replace(
                 self.metadata,
                 modified_by=published_by,
-                modified_at=datetime.now(timezone.utc)
+                modified_at=datetime.now(UTC)
             ),
             _domain_events=[]  # Create new entity with empty events list
         )
         
         return new_version
     
-    def deprecate(self, deprecated_by: str, reason: Optional[str] = None) -> "RuleVersion":
+    def deprecate(self, deprecated_by: str, reason: str | None = None) -> "RuleVersion":
         """
         Deprecate the rule version.
         
@@ -253,7 +253,7 @@ class RuleVersion:
             metadata=replace(
                 self.metadata,
                 modified_by=deprecated_by,
-                modified_at=datetime.now(timezone.utc)
+                modified_at=datetime.now(UTC)
             ),
             compatibility_notes=updated_notes if reason else self.compatibility_notes,
             _domain_events=[]  # Create new entity with empty events list
@@ -272,7 +272,7 @@ class RuleVersion:
             Compatibility level between versions
         """
         # Version-based compatibility check
-        version_compat = self.version.is_compatible_with(other.version)
+        # version_compat = self.version.is_compatible_with(other.version)  # noqa: F841
         
         # Rule-based compatibility check
         # Major: removed rules or changed rule types
@@ -290,8 +290,8 @@ class RuleVersion:
         self_rule_types = {str(rule.id): rule.type for rule in self.rules}
         other_rule_types = {str(rule.id): rule.type for rule in other.rules if str(rule.id) in self_rule_ids}
         
-        for rule_id in other_rule_types:
-            if self_rule_types.get(rule_id) != other_rule_types[rule_id]:
+        for rule_id, rule_type in other_rule_types.items():
+            if self_rule_types.get(rule_id) != rule_type:
                 return Compatibility.MAJOR
         
         # Check for new rules (minor change)
@@ -301,18 +301,18 @@ class RuleVersion:
         # Otherwise it's a patch change
         return Compatibility.PATCH
     
-    def get_rule_by_id(self, rule_id: str) -> Optional[RuleDefinition]:
+    def get_rule_by_id(self, rule_id: str) -> RuleDefinition | None:
         """Get a specific rule by its ID."""
         for rule in self.rules:
             if str(rule.id) == rule_id:
                 return rule
         return None
     
-    def get_rules_by_field(self, field: str) -> Tuple[RuleDefinition, ...]:
+    def get_rules_by_field(self, field: str) -> tuple[RuleDefinition, ...]:
         """Get all rules that apply to a specific field."""
         return tuple(rule for rule in self.rules if rule.field == field)
     
-    def get_rules_by_severity(self, severity: str) -> Tuple[RuleDefinition, ...]:
+    def get_rules_by_severity(self, severity: str) -> tuple[RuleDefinition, ...]:
         """Get all rules with a specific severity level."""
         return tuple(rule for rule in self.rules if rule.severity == severity)
     
@@ -320,7 +320,7 @@ class RuleVersion:
         """Add a domain event to this entity."""
         self._domain_events.append(event)
     
-    def get_domain_events(self) -> List[Any]:
+    def get_domain_events(self) -> list[Any]:
         """Get all domain events from this entity."""
         return list(self._domain_events)
     

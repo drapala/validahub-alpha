@@ -351,7 +351,7 @@ class CanonicalCSVModel:
         for field_name in ccm_columns:
             if field_name in ccm_data.columns:
                 ccm_data[field_name] = ccm_data[field_name].apply(
-                    lambda x: self._normalize_field_value(field_name, x)
+                    lambda x, fn=field_name: self._normalize_field_value(fn, x)
                 )
 
         return ccm_data
@@ -742,7 +742,7 @@ class CanonicalCSVModel:
         try:
             result = urlparse(url)
             return all([result.scheme, result.netloc]) and result.scheme in ["http", "https"]
-        except:
+        except Exception:
             return False
 
     def _normalize_field_value(self, field_name: str, value: Any) -> Any:
@@ -756,7 +756,7 @@ class CanonicalCSVModel:
         if normalizer:
             try:
                 return normalizer(value)
-            except:
+            except Exception:
                 return value
 
         return value

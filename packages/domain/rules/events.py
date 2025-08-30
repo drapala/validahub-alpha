@@ -4,8 +4,8 @@ This module defines domain events specific to the Rules context.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from src.domain.events import DomainEvent
@@ -18,7 +18,7 @@ class RuleSetCreatedEvent(DomainEvent):
     
     channel: str = ""
     name: str = ""
-    created_by: Optional[str] = None
+    created_by: str | None = None
     
     @classmethod
     def create(
@@ -27,15 +27,15 @@ class RuleSetCreatedEvent(DomainEvent):
         tenant_id: str,
         channel: str,
         name: str,
-        created_by: Optional[str] = None,
-        correlation_id: Optional[str] = None
+        created_by: str | None = None,
+        correlation_id: str | None = None
     ) -> "RuleSetCreatedEvent":
         """Factory method to create a RuleSetCreatedEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=rule_set_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             channel=channel,
             name=name,
@@ -59,14 +59,14 @@ class RuleSetPublishedEvent(DomainEvent):
         version: str,
         is_current: bool,
         published_by: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleSetPublishedEvent":
         """Factory method to create a RuleSetPublishedEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=rule_set_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             version=version,
             is_current=is_current,
@@ -79,7 +79,7 @@ class RuleSetDeprecatedEvent(DomainEvent):
     """Event emitted when a rule set version is deprecated."""
     
     version: str = ""
-    reason: Optional[str] = None
+    reason: str | None = None
     deprecated_by: str = ""
     
     @classmethod
@@ -88,16 +88,16 @@ class RuleSetDeprecatedEvent(DomainEvent):
         rule_set_id: str,
         tenant_id: str,
         version: str,
-        reason: Optional[str],
+        reason: str | None,
         deprecated_by: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleSetDeprecatedEvent":
         """Factory method to create a RuleSetDeprecatedEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=rule_set_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             version=version,
             reason=reason,
@@ -109,7 +109,7 @@ class RuleSetDeprecatedEvent(DomainEvent):
 class RuleSetRolledBackEvent(DomainEvent):
     """Event emitted when a rule set is rolled back to a previous version."""
     
-    from_version: Optional[str] = None
+    from_version: str | None = None
     to_version: str = ""
     reason: str = ""
     rolled_back_by: str = ""
@@ -119,18 +119,18 @@ class RuleSetRolledBackEvent(DomainEvent):
         cls,
         rule_set_id: str,
         tenant_id: str,
-        from_version: Optional[str],
+        from_version: str | None,
         to_version: str,
         reason: str,
         rolled_back_by: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleSetRolledBackEvent":
         """Factory method to create a RuleSetRolledBackEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=rule_set_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             from_version=from_version,
             to_version=to_version,
@@ -157,14 +157,14 @@ class RuleVersionCreatedEvent(DomainEvent):
         version: str,
         rule_count: int,
         created_by: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleVersionCreatedEvent":
         """Factory method to create a RuleVersionCreatedEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=rule_version_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             version=version,
             rule_count=rule_count,
@@ -188,14 +188,14 @@ class RuleVersionAddedEvent(DomainEvent):
         version: str,
         rule_count: int,
         added_by: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleVersionAddedEvent":
         """Factory method to create a RuleVersionAddedEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=rule_set_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             version=version,
             rule_count=rule_count,
@@ -221,14 +221,14 @@ class RuleValidatedEvent(DomainEvent):
         validation_result: bool,
         error_count: int,
         validated_by: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleValidatedEvent":
         """Factory method to create a RuleValidatedEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=rule_version_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             version=version,
             validation_result=validation_result,
@@ -249,7 +249,7 @@ class RuleEvaluationEvent(DomainEvent):
     value: Any = None
     passed: bool = False
     severity: str = ""
-    message: Optional[str] = None
+    message: str | None = None
     
     @classmethod
     def create(
@@ -262,15 +262,15 @@ class RuleEvaluationEvent(DomainEvent):
         value: Any,
         passed: bool,
         severity: str,
-        message: Optional[str] = None,
-        correlation_id: Optional[str] = None
+        message: str | None = None,
+        correlation_id: str | None = None
     ) -> "RuleEvaluationEvent":
         """Factory method to create a RuleEvaluationEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=job_id,  # Associated with job being validated
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             rule_id=rule_id,
             rule_version=rule_version,
@@ -304,14 +304,14 @@ class RuleSetAppliedEvent(DomainEvent):
         rules_passed: int,
         rules_failed: int,
         evaluation_duration_ms: float,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RuleSetAppliedEvent":
         """Factory method to create a RuleSetAppliedEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=job_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             rule_set_id=rule_set_id,
             rule_version=rule_version,
@@ -341,14 +341,14 @@ class RulesReadyForJobEvent(DomainEvent):
         rule_set_id: str,
         rule_version: str,
         channel: str,
-        correlation_id: Optional[str] = None
+        correlation_id: str | None = None
     ) -> "RulesReadyForJobEvent":
         """Factory method to create a RulesReadyForJobEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=job_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             job_id=job_id,
             rule_set_id=rule_set_id,
@@ -365,9 +365,9 @@ class RuleViolationDetectedEvent(DomainEvent):
     rule_id: str = ""
     field: str = ""
     severity: str = ""
-    row_number: Optional[int] = None
-    column_name: Optional[str] = None
-    violation_details: Optional[Dict[str, Any]] = None
+    row_number: int | None = None
+    column_name: str | None = None
+    violation_details: dict[str, Any] | None = None
     
     @classmethod
     def create(
@@ -377,17 +377,17 @@ class RuleViolationDetectedEvent(DomainEvent):
         rule_id: str,
         field: str,
         severity: str,
-        row_number: Optional[int] = None,
-        column_name: Optional[str] = None,
-        violation_details: Optional[Dict[str, Any]] = None,
-        correlation_id: Optional[str] = None
+        row_number: int | None = None,
+        column_name: str | None = None,
+        violation_details: dict[str, Any] | None = None,
+        correlation_id: str | None = None
     ) -> "RuleViolationDetectedEvent":
         """Factory method to create a RuleViolationDetectedEvent."""
         return cls(
             event_id=str(uuid4()),
             aggregate_id=job_id,
             tenant_id=tenant_id,
-            occurred_at=datetime.now(timezone.utc),
+            occurred_at=datetime.now(UTC),
             correlation_id=correlation_id,
             job_id=job_id,
             rule_id=rule_id,

@@ -10,8 +10,9 @@ from functools import lru_cache
 from typing import Any
 
 import httpx
-from packages.shared.logging import get_logger
 from pydantic import BaseModel, Field, SecretStr
+
+from packages.shared.logging import get_logger
 
 logger = get_logger("infrastructure.secrets.doppler")
 
@@ -91,7 +92,7 @@ class DopplerClient:
             )
             if result.returncode == 0:
                 return result.stdout.strip()
-        except:
+        except Exception:
             pass
         return None
 

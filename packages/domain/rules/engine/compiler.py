@@ -452,7 +452,7 @@ class RuleCompiler:
         """Analisa dependências entre campos."""
         dependencies = {}
 
-        for rule_id, rule in rules.items():
+        for _rule_id, rule in rules.items():
             deps = set()
 
             # Analisar dependências na condição

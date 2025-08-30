@@ -600,8 +600,8 @@ class RuleExecutionEngine:
             "startswith": lambda x, y: str(x).startswith(str(y)) if x is not None else False,
             "endswith": lambda x, y: str(x).endswith(str(y)) if x is not None else False,
             "matches": lambda x, y: bool(re.match(str(y), str(x))) if x is not None else False,
-            "in": lambda x, y: x in (y if isinstance(y, (list, tuple, set)) else [y]),
-            "not_in": lambda x, y: x not in (y if isinstance(y, (list, tuple, set)) else [y]),
+            "in": lambda x, y: x in (y if isinstance(y, list | tuple | set) else [y]),
+            "not_in": lambda x, y: x not in (y if isinstance(y, list | tuple | set) else [y]),
             "empty": lambda x, y: x is None or str(x).strip() == "",
             "not_empty": lambda x, y: x is not None and str(x).strip() != "",
             "is_number": lambda x, y: self._is_number(x),
@@ -615,8 +615,8 @@ class RuleExecutionEngine:
         try:
             if x is None or y is None:
                 return False
-            num_x = float(x) if not isinstance(x, (int, float)) else x
-            num_y = float(y) if not isinstance(y, (int, float)) else y
+            num_x = float(x) if not isinstance(x, int | float) else x
+            num_y = float(y) if not isinstance(y, int | float) else y
             return comparator(num_x, num_y)
         except (ValueError, TypeError):
             return False
@@ -652,7 +652,7 @@ class RuleExecutionEngine:
         try:
             pd.to_datetime(value)
             return True
-        except:
+        except Exception:
             return False
 
     def _merge_results(self, target: ExecutionResult, source: ExecutionResult) -> None:

@@ -3,12 +3,11 @@
 This module contains immutable value objects with validation and invariants.
 """
 
-import json
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import Any, ClassVar
 from uuid import UUID
 
 
@@ -225,10 +224,10 @@ class RuleDefinition:
     id: RuleId
     type: RuleType
     field: str
-    condition: Dict[str, Any]
+    condition: dict[str, Any]
     message: str
     severity: str  # "error", "warning", "info"
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
     
     def __post_init__(self) -> None:
         # Validate field name
@@ -316,7 +315,7 @@ class RuleDefinition:
         if "rules" not in self.condition or not isinstance(self.condition["rules"], list):
             raise ValueError("Composite rule must specify rules list")
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation."""
         return {
             "id": str(self.id),
@@ -338,11 +337,11 @@ class RuleMetadata:
     
     created_by: str
     created_at: datetime
-    modified_by: Optional[str] = None
-    modified_at: Optional[datetime] = None
-    tags: Optional[List[str]] = None
-    description: Optional[str] = None
-    documentation_url: Optional[str] = None
+    modified_by: str | None = None
+    modified_at: datetime | None = None
+    tags: list[str] | None = None
+    description: str | None = None
+    documentation_url: str | None = None
     
     def __post_init__(self) -> None:
         # Validate timestamps are timezone-aware

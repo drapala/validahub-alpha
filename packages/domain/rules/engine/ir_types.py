@@ -117,7 +117,7 @@ class CompiledCondition:
     field: str | None = None  # Campo alvo da condição
 
     # Para condições lógicas
-    subconditions: list["CompiledCondition"] = dataclass_field(default_factory=list)
+    subconditions: list[CompiledCondition] = dataclass_field(default_factory=list)
     logical_op: str | None = None  # "and", "or", "not"
 
 
