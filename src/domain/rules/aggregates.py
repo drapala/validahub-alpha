@@ -167,7 +167,8 @@ class RuleSet:
         
         # Check version sequence (new version should be higher)
         if self.versions:
-            latest = max(self.versions, key=lambda v: str(v.version))
+            # Use numeric comparison via tuple (major, minor, patch)
+            latest = max(self.versions, key=lambda v: (v.version.major, v.version.minor, v.version.patch))
             if not version.version.is_newer_than(latest.version):
                 raise ValueError("New version must be higher than existing versions")
         
@@ -183,9 +184,9 @@ class RuleSet:
         new_rule_set = replace(
             self,
             versions=new_versions,
-            updated_at=datetime.now(timezone.utc)
+            updated_at=datetime.now(timezone.utc),
+            _domain_events=[]  # Create new RuleSet with empty events list
         )
-        object.__setattr__(new_rule_set, '_domain_events', [])
         
         # Emit version added event
         new_rule_set._add_domain_event(
@@ -249,9 +250,9 @@ class RuleSet:
             versions=new_versions,
             published_versions=new_published,
             current_version=new_current,
-            updated_at=datetime.now(timezone.utc)
+            updated_at=datetime.now(timezone.utc),
+            _domain_events=[]  # Create new RuleSet with empty events list
         )
-        object.__setattr__(new_rule_set, '_domain_events', [])
         
         # Copy events from version
         for event in published_version.get_domain_events():
@@ -313,14 +314,17 @@ class RuleSet:
         ]
         
         new_deprecated = list(self.deprecated_versions) + [version]
+        # Remove from published_versions to maintain consistency
+        new_published = [v for v in self.published_versions if v != version]
         
         new_rule_set = replace(
             self,
             versions=new_versions,
+            published_versions=new_published,
             deprecated_versions=new_deprecated,
-            updated_at=datetime.now(timezone.utc)
+            updated_at=datetime.now(timezone.utc),
+            _domain_events=[]  # Create new RuleSet with empty events list
         )
-        object.__setattr__(new_rule_set, '_domain_events', [])
         
         # Copy events from version
         for event in deprecated_version.get_domain_events():
@@ -376,9 +380,9 @@ class RuleSet:
         new_rule_set = replace(
             self,
             current_version=version,
-            updated_at=datetime.now(timezone.utc)
+            updated_at=datetime.now(timezone.utc),
+            _domain_events=[]  # Create new RuleSet with empty events list
         )
-        object.__setattr__(new_rule_set, '_domain_events', [])
         
         # Emit rollback event
         new_rule_set._add_domain_event(
@@ -405,7 +409,8 @@ class RuleSet:
         """Get the latest version (published or not)."""
         if not self.versions:
             return None
-        return max(self.versions, key=lambda v: str(v.version))
+        # Use numeric comparison via tuple (major, minor, patch)
+        return max(self.versions, key=lambda v: (v.version.major, v.version.minor, v.version.patch))
     
     def get_published_versions(self) -> List[RuleVersion]:
         """Get all published versions."""
@@ -438,8 +443,8 @@ class RuleSet:
         if not candidates:
             return None
         
-        # Sort by priority and version
-        candidates.sort(key=lambda x: (x[1], str(x[0].version)), reverse=True)
+        # Sort by priority and version (using numeric comparison)
+        candidates.sort(key=lambda x: (x[1], x[0].version.major, x[0].version.minor, x[0].version.patch), reverse=True)
         return candidates[0][0]
     
     def _get_version(self, version: SemVer) -> Optional[RuleVersion]:
@@ -465,18 +470,18 @@ class RuleSet:
     
     def clear_domain_events(self) -> "RuleSet":
         """Clear all domain events from this aggregate."""
-        new_rule_set = replace(self)
-        object.__setattr__(new_rule_set, '_domain_events', [])
-        
         # Clear events from entities
         new_versions = []
-        for version in new_rule_set.versions:
-            new_version = replace(version)
-            object.__setattr__(new_version, '_domain_events', [])
+        for version in self.versions:
+            new_version = version.clear_domain_events()
             new_versions.append(new_version)
         
-        object.__setattr__(new_rule_set, 'versions', new_versions)
-        return new_rule_set
+        # Create new RuleSet with cleared events
+        return replace(
+            self,
+            versions=new_versions,
+            _domain_events=[]
+        )
     
     def __str__(self) -> str:
         """String representation."""

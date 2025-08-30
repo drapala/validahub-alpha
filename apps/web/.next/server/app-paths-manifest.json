@@ -1,0 +1,6 @@
+{
+  "/rules/editor/page": "app/rules/editor/page.js",
+  "/page": "app/page.js",
+  "/rules/analytics/page": "app/rules/analytics/page.js",
+  "/rules/builder/page": "app/rules/builder/page.js"
+}

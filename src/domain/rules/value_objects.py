@@ -62,7 +62,15 @@ class RuleSetId:
 
 @dataclass(frozen=True)
 class RuleId:
-    """Individual rule identifier."""
+    """Individual rule identifier.
+    
+    Note: Rule IDs are automatically normalized to lowercase for consistency.
+    This ensures that 'Price_Validation', 'price_validation', and 'PRICE_VALIDATION'
+    all map to the same rule ('price_validation').
+    
+    Valid format: must start with lowercase letter, followed by lowercase letters,
+    numbers, or underscores (e.g., 'price_validation', 'sku_format_01')
+    """
     
     value: str
     _pattern: ClassVar[re.Pattern[str]] = re.compile(r"^[a-z][a-z0-9_]{2,63}$")
@@ -107,19 +115,30 @@ class RuleVersionId:
 
 @dataclass(frozen=True)
 class SemVer:
-    """Semantic version with validation."""
+    """Semantic version with validation.
+    
+    Pre-release version limits can be configured via class attributes.
+    """
     
     major: int
     minor: int
     patch: int
+    
+    # Configurable limits for pre-release versions (major version 0)
+    MAX_PRERELEASE_MINOR: ClassVar[int] = 99
+    MAX_PRERELEASE_PATCH: ClassVar[int] = 999
     
     def __post_init__(self) -> None:
         if self.major < 0 or self.minor < 0 or self.patch < 0:
             raise ValueError("Version components must be non-negative")
         
         # Major version 0 is allowed only for initial development
-        if self.major == 0 and (self.minor > 99 or self.patch > 999):
-            raise ValueError("Pre-release versions limited to 0.99.999")
+        if self.major == 0 and (self.minor > self.MAX_PRERELEASE_MINOR or 
+                                self.patch > self.MAX_PRERELEASE_PATCH):
+            raise ValueError(
+                f"Pre-release versions limited to 0.{self.MAX_PRERELEASE_MINOR}."
+                f"{self.MAX_PRERELEASE_PATCH}"
+            )
     
     @classmethod
     def from_string(cls, version_str: str) -> "SemVer":
@@ -209,38 +228,70 @@ class RuleDefinition:
         if not self.condition:
             raise ValueError("Rule condition cannot be empty")
         
-        if self.type == RuleType.REQUIRED:
-            # Required rules need no additional condition
-            pass
-        elif self.type == RuleType.FORMAT:
-            if "format" not in self.condition:
-                raise ValueError("Format rule must specify format")
-        elif self.type == RuleType.LENGTH:
-            if "min" not in self.condition and "max" not in self.condition:
-                raise ValueError("Length rule must specify min or max")
-        elif self.type == RuleType.RANGE:
-            if "min" not in self.condition and "max" not in self.condition:
-                raise ValueError("Range rule must specify min or max")
-        elif self.type == RuleType.ENUM:
-            if "values" not in self.condition or not isinstance(self.condition["values"], list):
-                raise ValueError("Enum rule must specify values list")
-        elif self.type == RuleType.PATTERN:
-            if "pattern" not in self.condition:
-                raise ValueError("Pattern rule must specify regex pattern")
-            # Validate regex compilation
-            try:
-                re.compile(self.condition["pattern"])
-            except re.error:
-                raise ValueError("Invalid regex pattern")
-        elif self.type == RuleType.DEPENDENCY:
-            if "depends_on" not in self.condition:
-                raise ValueError("Dependency rule must specify depends_on field")
-        elif self.type == RuleType.BUSINESS:
-            if "expression" not in self.condition:
-                raise ValueError("Business rule must specify expression")
-        elif self.type == RuleType.COMPOSITE:
-            if "rules" not in self.condition or not isinstance(self.condition["rules"], list):
-                raise ValueError("Composite rule must specify rules list")
+        validators = {
+            RuleType.REQUIRED: self._validate_required_condition,
+            RuleType.FORMAT: self._validate_format_condition,
+            RuleType.LENGTH: self._validate_length_condition,
+            RuleType.RANGE: self._validate_range_condition,
+            RuleType.ENUM: self._validate_enum_condition,
+            RuleType.PATTERN: self._validate_pattern_condition,
+            RuleType.DEPENDENCY: self._validate_dependency_condition,
+            RuleType.BUSINESS: self._validate_business_condition,
+            RuleType.COMPOSITE: self._validate_composite_condition,
+        }
+        
+        validator = validators.get(self.type)
+        if validator:
+            validator()
+    
+    def _validate_required_condition(self) -> None:
+        """Required rules need no additional condition."""
+        pass
+    
+    def _validate_format_condition(self) -> None:
+        """Validate format rule condition."""
+        if "format" not in self.condition:
+            raise ValueError("Format rule must specify format")
+    
+    def _validate_length_condition(self) -> None:
+        """Validate length rule condition."""
+        if "min" not in self.condition and "max" not in self.condition:
+            raise ValueError("Length rule must specify min or max")
+    
+    def _validate_range_condition(self) -> None:
+        """Validate range rule condition."""
+        if "min" not in self.condition and "max" not in self.condition:
+            raise ValueError("Range rule must specify min or max")
+    
+    def _validate_enum_condition(self) -> None:
+        """Validate enum rule condition."""
+        if "values" not in self.condition or not isinstance(self.condition["values"], list):
+            raise ValueError("Enum rule must specify values list")
+    
+    def _validate_pattern_condition(self) -> None:
+        """Validate pattern rule condition."""
+        if "pattern" not in self.condition:
+            raise ValueError("Pattern rule must specify regex pattern")
+        # Validate regex compilation
+        try:
+            re.compile(self.condition["pattern"])
+        except re.error:
+            raise ValueError("Invalid regex pattern")
+    
+    def _validate_dependency_condition(self) -> None:
+        """Validate dependency rule condition."""
+        if "depends_on" not in self.condition:
+            raise ValueError("Dependency rule must specify depends_on field")
+    
+    def _validate_business_condition(self) -> None:
+        """Validate business rule condition."""
+        if "expression" not in self.condition:
+            raise ValueError("Business rule must specify expression")
+    
+    def _validate_composite_condition(self) -> None:
+        """Validate composite rule condition."""
+        if "rules" not in self.condition or not isinstance(self.condition["rules"], list):
+            raise ValueError("Composite rule must specify rules list")
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary representation."""

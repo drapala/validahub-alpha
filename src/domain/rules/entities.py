@@ -152,9 +152,9 @@ class RuleVersion:
                 self.metadata,
                 modified_by=validated_by,
                 modified_at=datetime.now(timezone.utc)
-            )
+            ),
+            _domain_events=[]  # Create new entity with empty events list
         )
-        object.__setattr__(new_version, '_domain_events', [])
         
         # Emit validation event
         new_version._add_domain_event(
@@ -196,9 +196,9 @@ class RuleVersion:
                 self.metadata,
                 modified_by=published_by,
                 modified_at=datetime.now(timezone.utc)
-            )
+            ),
+            _domain_events=[]  # Create new entity with empty events list
         )
-        object.__setattr__(new_version, '_domain_events', [])
         
         return new_version
     
@@ -219,6 +219,11 @@ class RuleVersion:
         if self.status != RuleStatus.PUBLISHED:
             raise ValueError(f"Cannot deprecate rules in {self.status.value} status")
         
+        # Update compatibility notes if reason provided
+        updated_notes = self.compatibility_notes or {}
+        if reason:
+            updated_notes = {**updated_notes, "deprecation_reason": reason}
+        
         new_version = replace(
             self,
             status=RuleStatus.DEPRECATED,
@@ -226,14 +231,10 @@ class RuleVersion:
                 self.metadata,
                 modified_by=deprecated_by,
                 modified_at=datetime.now(timezone.utc)
-            )
+            ),
+            compatibility_notes=updated_notes if reason else self.compatibility_notes,
+            _domain_events=[]  # Create new entity with empty events list
         )
-        object.__setattr__(new_version, '_domain_events', [])
-        
-        if reason:
-            compatibility_notes = self.compatibility_notes or {}
-            compatibility_notes["deprecation_reason"] = reason
-            object.__setattr__(new_version, 'compatibility_notes', compatibility_notes)
         
         return new_version
     
@@ -299,6 +300,10 @@ class RuleVersion:
     def get_domain_events(self) -> List[Any]:
         """Get all domain events from this entity."""
         return list(self._domain_events)
+    
+    def clear_domain_events(self) -> "RuleVersion":
+        """Clear all domain events from this entity."""
+        return replace(self, _domain_events=[])
     
     def __str__(self) -> str:
         """String representation."""
