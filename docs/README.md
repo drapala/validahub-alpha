@@ -4,24 +4,43 @@ Este diretório contém toda a documentação do projeto ValidaHub, organizada p
 
 ## 📁 Estrutura
 
-### `/product/` - Documentação de Produto
-- **[visao_de_produto.md](product/visao_de_produto.md)** - Visão estratégica e roadmap do produto
-- **[backlog-executavel.md](product/backlog-executavel.md)** - Backlog executável com priorização
+### `/adr/` - Architecture Decision Records
+Decisões técnicas de arquitetura com impacto de longo prazo no sistema.
 
 ### `/architecture/` - Arquitetura e Design
-- **[strategic-epics.md](architecture/strategic-epics.md)** - Épicos estratégicos e features principais
 - **[API.md](architecture/API.md)** - Especificação da API e política de idempotência
+- **[LOGGING_IMPLEMENTATION.md](architecture/LOGGING_IMPLEMENTATION.md)** - Implementação de logging
+- **[LOGGING_STANDARDS.md](architecture/LOGGING_STANDARDS.md)** - Padrões de logging
+- **[MULTI_TENANCY_ASSESSMENT.md](architecture/MULTI_TENANCY_ASSESSMENT.md)** - Avaliação multi-tenancy
+- **[TELEMETRY_IMPLEMENTATION_GUIDE.md](architecture/TELEMETRY_IMPLEMENTATION_GUIDE.md)** - Guia de telemetria
+- **[strategic-epics.md](architecture/strategic-epics.md)** - Épicos estratégicos
 
-### `/security/` - Segurança e Compliance
-- **[IDEMPOTENCY_KEY_SECURITY_AUDIT.md](security/IDEMPOTENCY_KEY_SECURITY_AUDIT.md)** - Auditoria de segurança das chaves de idempotência
-- **[LGPD_COMPLIANCE_TESTS_SUMMARY.md](security/LGPD_COMPLIANCE_TESTS_SUMMARY.md)** - Resumo dos testes de compliance LGPD
-- **[SECURITY_TEST_IMPLEMENTATION_REPORT.md](security/SECURITY_TEST_IMPLEMENTATION_REPORT.md)** - Relatório de implementação de testes de segurança
+### `/compliance/` - Compliance e Regulatório
+- **[LGPD_COMPLIANCE_REPORT.md](compliance/LGPD_COMPLIANCE_REPORT.md)** - Relatório de compliance LGPD
+- **[LGPD_IMPLEMENTATION_PLAN.md](compliance/LGPD_IMPLEMENTATION_PLAN.md)** - Plano de implementação LGPD
 
 ### `/domain/` - Modelagem de Domínio
 - **[job-aggregate-design.md](domain/job-aggregate-design.md)** - Design do agregado Job
 
-### `/backlog/` - Gestão de Produto
-- **[product-roadmap.md](backlog/product-roadmap.md)** - Roadmap detalhado do produto
+### `/pdr/` - Product Decision Records
+Decisões de estratégia de produto que afetam direção de negócio e experiência do usuário.
+
+### `/product/` - Documentação de Produto
+- **[visao_de_produto.md](product/visao_de_produto.md)** - Visão estratégica do produto
+- **[product-roadmap.md](product/product-roadmap.md)** - Roadmap detalhado
+- **`backlogs/`** - Backlogs de produto
+  - **[PRODUCT_BACKLOG_CONSOLIDATED.md](product/backlogs/PRODUCT_BACKLOG_CONSOLIDATED.md)** - Backlog consolidado
+  - **[PRODUCT_BACKLOG_LGPD.md](product/backlogs/PRODUCT_BACKLOG_LGPD.md)** - Backlog LGPD
+  - **[PRODUCT_BACKLOG_MULTI_TENANCY.md](product/backlogs/PRODUCT_BACKLOG_MULTI_TENANCY.md)** - Backlog multi-tenancy
+  - **[backlog-executavel.md](product/backlogs/backlog-executavel.md)** - Backlog executável
+- **`epics/`** - Detalhamento de épicos
+  - **[epic-1-integration-events-breakdown.md](product/epics/epic-1-integration-events-breakdown.md)** - Epic de eventos de integração
+
+### `/security/` - Segurança
+- **[IDEMPOTENCY_KEY_SECURITY_AUDIT.md](security/IDEMPOTENCY_KEY_SECURITY_AUDIT.md)** - Auditoria de segurança
+- **[LGPD_COMPLIANCE_TESTS_SUMMARY.md](security/LGPD_COMPLIANCE_TESTS_SUMMARY.md)** - Testes de compliance
+- **[SECURITY_FIXES.md](security/SECURITY_FIXES.md)** - Correções de segurança
+- **[SECURITY_TEST_IMPLEMENTATION_REPORT.md](security/SECURITY_TEST_IMPLEMENTATION_REPORT.md)** - Relatório de testes
 
 ## 📋 Outros Documentos
 
