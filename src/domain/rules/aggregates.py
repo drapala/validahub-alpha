@@ -5,10 +5,17 @@ This module contains the RuleSet aggregate root following DDD principles.
 
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple, Mapping
 from uuid import uuid4
 
 from src.domain.value_objects import TenantId, Channel
+from .exceptions import (
+    VersionAlreadyExistsError,
+    VersionNotFoundError,
+    VersionSequenceError,
+    CompatibilityPolicyViolationError,
+    CurrentVersionError,
+)
 from .value_objects import (
     RuleSetId,
     RuleStatus,
@@ -32,6 +39,18 @@ class RuleSet:
     
     This aggregate ensures version consistency, manages lifecycle transitions,
     and maintains backward compatibility policies.
+    
+    IMMUTABILITY DESIGN:
+    All collection fields use immutable types (Tuple, Mapping) to prevent external
+    mutation that would bypass domain validation and event emission. This ensures
+    that modifications can only happen through proper domain methods like
+    add_version(), publish_version(), etc., which maintain invariants and emit
+    appropriate domain events.
+    
+    Example of what this prevents:
+    - rule_set.versions.append(version)  # Would bypass validation
+    - rule_set.published_versions.clear()  # Would violate state consistency  
+    - rule_set.compatibility_policy["new_key"] = value  # Would bypass business rules
     """
     
     id: RuleSetId
@@ -39,11 +58,11 @@ class RuleSet:
     channel: Channel
     name: str
     description: Optional[str]
-    versions: List[RuleVersion]
+    versions: Tuple[RuleVersion, ...]
     current_version: Optional[SemVer]
-    published_versions: List[SemVer]
-    deprecated_versions: List[SemVer]
-    compatibility_policy: Dict[str, Any]
+    published_versions: Tuple[SemVer, ...]
+    deprecated_versions: Tuple[SemVer, ...]
+    compatibility_policy: Mapping[str, Any]
     created_at: datetime
     updated_at: datetime
     _domain_events: List[Any] = field(default_factory=list, init=False, compare=False)
@@ -113,10 +132,10 @@ class RuleSet:
             channel=channel,
             name=name,
             description=description,
-            versions=[],
+            versions=(),
             current_version=None,
-            published_versions=[],
-            deprecated_versions=[],
+            published_versions=(),
+            deprecated_versions=(),
             compatibility_policy=compatibility_policy or {
                 "auto_apply_patch": True,
                 "shadow_period_days": 30,
@@ -163,14 +182,14 @@ class RuleSet:
         # Check version doesn't already exist
         for existing in self.versions:
             if existing.version == version.version:
-                raise ValueError(f"Version {version.version} already exists")
+                raise VersionAlreadyExistsError(str(version.version))
         
         # Check version sequence (new version should be higher)
         if self.versions:
-            # Use numeric comparison via tuple (major, minor, patch)
-            latest = max(self.versions, key=lambda v: (v.version.major, v.version.minor, v.version.patch))
+            # Use SemVer's built-in comparison
+            latest = max(self.versions, key=lambda v: v.version)
             if not version.version.is_newer_than(latest.version):
-                raise ValueError("New version must be higher than existing versions")
+                raise VersionSequenceError()
         
         # Check backward compatibility if required
         if self.current_version and self.compatibility_policy.get("enforce_compatibility"):
@@ -178,9 +197,9 @@ class RuleSet:
             if current:
                 compat = version.is_backward_compatible_with(current)
                 if compat == Compatibility.MAJOR and not self.compatibility_policy.get("allow_breaking"):
-                    raise ValueError("Breaking changes not allowed by policy")
+                    raise CompatibilityPolicyViolationError()
         
-        new_versions = list(self.versions) + [version]
+        new_versions = self.versions + (version,)
         new_rule_set = replace(
             self,
             versions=new_versions,
@@ -228,21 +247,21 @@ class RuleSet:
         """
         rule_version = self._get_version(version)
         if not rule_version:
-            raise ValueError(f"Version {version} not found")
+            raise VersionNotFoundError(str(version))
         
         if version in self.published_versions:
-            raise ValueError(f"Version {version} already published")
+            raise VersionAlreadyExistsError(f"{version} (already published)")
         
         # Publish the version
         published_version = rule_version.publish(checksum, published_by)
         
-        # Update versions list
-        new_versions = [
+        # Update versions tuple
+        new_versions = tuple(
             published_version if v.version == version else v
             for v in self.versions
-        ]
+        )
         
-        new_published = list(self.published_versions) + [version]
+        new_published = self.published_versions + (version,)
         new_current = version if make_current else self.current_version
         
         new_rule_set = replace(
@@ -295,27 +314,27 @@ class RuleSet:
             ValueError: If version not found or is current version
         """
         if version == self.current_version:
-            raise ValueError("Cannot deprecate current version")
+            raise CurrentVersionError("Cannot deprecate current version")
         
         rule_version = self._get_version(version)
         if not rule_version:
-            raise ValueError(f"Version {version} not found")
+            raise VersionNotFoundError(str(version))
         
         if version in self.deprecated_versions:
-            raise ValueError(f"Version {version} already deprecated")
+            raise VersionAlreadyExistsError(f"{version} (already deprecated)")
         
         # Deprecate the version
         deprecated_version = rule_version.deprecate(deprecated_by, reason)
         
-        # Update versions list
-        new_versions = [
+        # Update versions tuple
+        new_versions = tuple(
             deprecated_version if v.version == version else v
             for v in self.versions
-        ]
+        )
         
-        new_deprecated = list(self.deprecated_versions) + [version]
+        new_deprecated = self.deprecated_versions + (version,)
         # Remove from published_versions to maintain consistency
-        new_published = [v for v in self.published_versions if v != version]
+        new_published = tuple(v for v in self.published_versions if v != version)
         
         new_rule_set = replace(
             self,
@@ -367,13 +386,13 @@ class RuleSet:
             ValueError: If version not found or not published
         """
         if version not in self.published_versions:
-            raise ValueError(f"Version {version} is not published")
+            raise VersionNotFoundError(f"{version} (not published)")
         
         if version in self.deprecated_versions:
-            raise ValueError(f"Cannot rollback to deprecated version {version}")
+            raise CurrentVersionError(f"Cannot rollback to deprecated version {version}")
         
         if version == self.current_version:
-            raise ValueError(f"Already at version {version}")
+            raise CurrentVersionError(f"Already at version {version}")
         
         previous_version = self.current_version
         
@@ -409,12 +428,12 @@ class RuleSet:
         """Get the latest version (published or not)."""
         if not self.versions:
             return None
-        # Use numeric comparison via tuple (major, minor, patch)
-        return max(self.versions, key=lambda v: (v.version.major, v.version.minor, v.version.patch))
+        # Use SemVer's built-in comparison
+        return max(self.versions, key=lambda v: v.version)
     
-    def get_published_versions(self) -> List[RuleVersion]:
+    def get_published_versions(self) -> Tuple[RuleVersion, ...]:
         """Get all published versions."""
-        return [v for v in self.versions if v.version in self.published_versions]
+        return tuple(v for v in self.versions if v.version in self.published_versions)
     
     def get_compatible_upgrade(self, from_version: SemVer) -> Optional[RuleVersion]:
         """
@@ -443,8 +462,8 @@ class RuleSet:
         if not candidates:
             return None
         
-        # Sort by priority and version (using numeric comparison)
-        candidates.sort(key=lambda x: (x[1], x[0].version.major, x[0].version.minor, x[0].version.patch), reverse=True)
+        # Sort by priority and version (using SemVer comparison)
+        candidates.sort(key=lambda x: (x[1], x[0].version), reverse=True)
         return candidates[0][0]
     
     def _get_version(self, version: SemVer) -> Optional[RuleVersion]:
@@ -471,10 +490,10 @@ class RuleSet:
     def clear_domain_events(self) -> "RuleSet":
         """Clear all domain events from this aggregate."""
         # Clear events from entities
-        new_versions = []
-        for version in self.versions:
-            new_version = version.clear_domain_events()
-            new_versions.append(new_version)
+        new_versions = tuple(
+            version.clear_domain_events()
+            for version in self.versions
+        )
         
         # Create new RuleSet with cleared events
         return replace(
